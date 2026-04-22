@@ -1,33 +1,34 @@
 "use client";
 
 const items = [
-  "Systems Thinking",
-  "Design Systems",
-  "0\u21921 Product Work",
-  "Cross-functional",
-  "Data-informed Design",
-  "Prototyping",
-  "A/B Testing",
-  "Research & Synthesis",
-  "Best Slack Memes",
-  "Stakeholder Alignment",
-  "Design \u00D7 Engineering",
+  "Systems Architecture",
+  "Full-Stack Engineering",
+  "0\u21921 Product Development",
+  "Cross-Platform Apps",
+  "Web3 & Smart Contracts",
+  "Solana & Ethereum",
+  "Game Development",
+  "Agentic Coding",
+  "Advanced Prompting",
   "AI-assisted Workflows",
-  "Product Strategy",
+  "Code \u00D7 Product",
+  "Best Slack Memes",
+  "End-to-End Execution",
   "Good Vibes",
 ];
 
 export function Marquee() {
   return (
     <div
-      className="marquee-wrap overflow-hidden whitespace-nowrap border-y border-[var(--border)] py-3.5"
+      className="marquee-wrap overflow-hidden whitespace-nowrap border-y border-[var(--border)]"
+      style={{ paddingTop: 20, paddingBottom: 20 }}
       aria-hidden
     >
       <div className="marquee-track">
         {[...items, ...items].map((item, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-14 px-7 text-[11px] font-semibold tracking-[0.12em] uppercase text-[var(--muted)] after:content-['\u2726'] after:text-[7px]"
+            className="inline-flex items-center gap-14 px-7 text-[11px] font-semibold tracking-[0.12em] uppercase text-[var(--muted)] after:content-['·'] after:text-[14px]"
             style={{ fontFamily: "var(--font-syne), sans-serif" }}
           >
             {item}
