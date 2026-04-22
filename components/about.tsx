@@ -37,34 +37,36 @@ const sideBlockVariant = {
 
 export function About() {
   return (
-    <section id="about" className="px-11 py-[120px] max-[900px]:px-6 max-[900px]:py-20">
+    <section id="about" style={{ padding: "120px 44px" }} className="max-[900px]:!px-6 max-[900px]:!py-20">
       {/* Header */}
-      <div className="mb-16 flex items-center justify-between border-b border-[var(--border)] pb-5 max-[900px]:mb-10">
+      <div style={{ paddingBottom: "20px", borderBottom: "1px solid var(--border)", marginBottom: "64px" }} className="flex items-center justify-between max-[900px]:!mb-10">
         <div>
           <p className="mb-2 text-[10px] tracking-[0.14em] uppercase text-[var(--muted)]">
             My story
           </p>
-          <h2
+          <motion.h2
             className="text-[clamp(52px,8vw,110px)] font-extrabold leading-[0.88] tracking-[-0.045em] max-[480px]:text-[14vw]"
-            style={{ fontFamily: "var(--font-syne), sans-serif" }}
+            style={{ fontFamily: "var(--font-syne), sans-serif", overflow: "hidden", paddingBottom: "0.15em" }}
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.01 }}
           >
-            <span className="block overflow-hidden">
-              <motion.span
-                className="block"
-                initial={{ y: "110%" }}
-                whileInView={{ y: 0 }}
-                viewport={{ once: true, margin: "-12%" }}
-                transition={{ duration: 1.05, ease: [0.25, 0.46, 0.45, 0.94] }}
-              >
-                About
-              </motion.span>
-            </span>
-          </h2>
+            <motion.span
+              className="block"
+              initial={{ y: "110%" }}
+              whileInView={{ y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 1.05, ease: [0.25, 0.46, 0.45, 0.94] }}
+            >
+              About
+            </motion.span>
+          </motion.h2>
         </div>
       </div>
 
       {/* Grid */}
-      <div className="mt-20 grid grid-cols-[1.1fr_0.9fr] gap-20 max-[900px]:mt-12 max-[900px]:grid-cols-1 max-[900px]:gap-12">
+      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: "80px", marginTop: "80px" }} className="max-[900px]:!grid-cols-1 max-[900px]:!gap-12 max-[900px]:!mt-12">
         {/* Bio */}
         <div>
           {[
@@ -109,7 +111,7 @@ export function About() {
         </div>
 
         {/* Side */}
-        <div className="flex flex-col gap-11">
+        <div style={{ display: "flex", flexDirection: "column", gap: "44px" }}>
           {/* Experience */}
           <motion.div
             variants={sideBlockVariant}
@@ -118,25 +120,36 @@ export function About() {
             viewport={{ once: true, margin: "-12%" }}
             custom={0}
           >
-            <h3 className="mb-4 text-[10px] tracking-[0.14em] uppercase text-[var(--muted)]">
+            <h3 style={{ fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "16px" }}>
               Experience
             </h3>
-            <ul className="flex flex-col">
+            <ul style={{ display: "flex", flexDirection: "column" }}>
               {experience.map((e) => (
                 <li
                   key={e.company}
-                  className="flex items-baseline justify-between gap-3 border-b border-[var(--border)] py-3.5"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    padding: "14px 0",
+                    borderBottom: "1px solid var(--border)",
+                    gap: "12px",
+                  }}
                 >
-                  <div className="flex flex-col gap-0.5">
+                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                     <span
-                      className="text-sm font-bold tracking-[-0.01em]"
-                      style={{ fontFamily: "var(--font-syne), sans-serif" }}
+                      style={{
+                        fontFamily: "var(--font-syne), sans-serif",
+                        fontSize: "14px",
+                        fontWeight: 700,
+                        letterSpacing: "-0.01em",
+                      }}
                     >
                       {e.company}
                     </span>
-                    <span className="text-xs text-[var(--muted)]">{e.role}</span>
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>{e.role}</span>
                   </div>
-                  <span className="shrink-0 text-[11px] text-[var(--muted)]">{e.years}</span>
+                  <span style={{ fontSize: "11px", color: "var(--muted)", whiteSpace: "nowrap", flexShrink: 0 }}>{e.years}</span>
                 </li>
               ))}
             </ul>
@@ -150,25 +163,36 @@ export function About() {
             viewport={{ once: true, margin: "-12%" }}
             custom={1}
           >
-            <h3 className="mb-4 text-[10px] tracking-[0.14em] uppercase text-[var(--muted)]">
+            <h3 style={{ fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "16px" }}>
               Awards
             </h3>
-            <ul className="flex flex-col">
+            <ul style={{ display: "flex", flexDirection: "column" }}>
               {awards.map((a) => (
                 <li
                   key={a.title}
-                  className="flex items-baseline justify-between gap-3 border-b border-[var(--border)] py-3.5"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    padding: "14px 0",
+                    borderBottom: "1px solid var(--border)",
+                    gap: "12px",
+                  }}
                 >
-                  <div className="flex flex-col gap-0.5">
+                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                     <span
-                      className="text-sm font-bold tracking-[-0.01em]"
-                      style={{ fontFamily: "var(--font-syne), sans-serif" }}
+                      style={{
+                        fontFamily: "var(--font-syne), sans-serif",
+                        fontSize: "14px",
+                        fontWeight: 700,
+                        letterSpacing: "-0.01em",
+                      }}
                     >
                       {a.title}
                     </span>
-                    <span className="text-xs text-[var(--muted)]">{a.issuer}</span>
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>{a.issuer}</span>
                   </div>
-                  <span className="shrink-0 text-[11px] text-[var(--muted)]">{a.year}</span>
+                  <span style={{ fontSize: "11px", color: "var(--muted)", whiteSpace: "nowrap", flexShrink: 0 }}>{a.year}</span>
                 </li>
               ))}
             </ul>
@@ -182,20 +206,28 @@ export function About() {
             viewport={{ once: true, margin: "-12%" }}
             custom={2}
           >
-            <h3 className="mb-4 text-[10px] tracking-[0.14em] uppercase text-[var(--muted)]">
+            <h3 style={{ fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "16px" }}>
               Skills
             </h3>
-            <div className="flex flex-wrap gap-[7px]">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "7px" }}>
               {skills.map((s) => (
                 <span
                   key={s}
-                  className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-[11px] tracking-[0.06em] text-[var(--muted)]"
+                  style={{
+                    fontSize: "11px",
+                    letterSpacing: "0.06em",
+                    padding: "6px 14px",
+                    border: "1px solid var(--border)",
+                    borderRadius: "100px",
+                    color: "var(--muted)",
+                  }}
                 >
                   {s}
                 </span>
               ))}
             </div>
           </motion.div>
+
         </div>
       </div>
     </section>
