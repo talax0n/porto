@@ -4,26 +4,71 @@ import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 
 const experience = [
-  { company: "NeoTaste", role: "Product Designer", years: "2025 - Now" },
-  { company: "Zattoo", role: "Product Designer", years: "2023 - 2025" },
-  { company: "Gymondo", role: "Senior UI/UX Designer", years: "2019 - 2022" },
-  { company: "VASS \u00D7 CaixaBank", role: "UI/UX Designer", years: "2017 - 2019" },
-  { company: "SEAT", role: "UI/UX Designer", years: "2016" },
-  { company: "Lafosca \u00B7 Mobile Jazz", role: "Junior UI Designer", years: "2015 - 2016" },
+  { company: "Bina Nusantara University", role: "Laboratory Assistant & Internal Projects Developer", years: "Jan 2025 - Now" },
+  { company: "PT KRUUU Technology Indonesia", role: "Fullstack Developer Intern", years: "Dec 2025 - Mar 2026" },
 ];
 
 const awards = [
-  { title: "Best Mobile Banking App, Western Europe", issuer: "Global Finance", year: "Sep 2018" },
-  { title: "Best Mobile Tech Project", issuer: "The Banker Tech Project Awards", year: "Oct 2018" },
-  { title: "Best Project - Innovative Touchpoints & Connected Services", issuer: "BAI Global Innovation Awards", year: "Oct 2018" },
-  { title: "Silver - Digital New Service or Application", issuer: "London Design Awards", year: "Nov 2018" },
+  { title: "Mentor's Favorite Project", issuer: "Kelas Rutin by Blockdev.id", year: "Nov 2025" },
+  { title: "Second Public Favorites Project", issuer: "Startup Village 2026 by Superteam Indonesia", year: "Apr 2026" },
 ];
 
 const skills = [
-  "Systems Thinking", "Design Systems", "0\u21921 Product Work", "Cross-functional",
-  "Data-informed Design", "Prototyping", "A/B Testing", "Research & Synthesis",
-  "Best Slack Memes", "Stakeholder Alignment", "Design \u00D7 Engineering",
-  "AI-assisted Workflows", "Product Strategy", "Good Vibes",
+
+  "JavaScript",
+
+  "TypeScript",
+
+  "Python",
+
+  "Go",
+
+  "Rust",
+
+  "C#",
+
+  "Kotlin",
+
+  "React",
+
+  "Next.js",
+
+  "Tailwind CSS",
+
+  "Gin",
+
+  "Flask",
+
+  "Laravel",
+
+  "GraphQL",
+
+  "REST API",
+
+  "Docker",
+
+  "Kubernetes",
+
+  "PostgreSQL",
+
+  "MySQL",
+
+  "Redis",
+
+  "Firebase",
+
+  "Git",
+
+  "Kali Linux",
+
+  "Android Studio",
+
+  "Unity",
+
+  "Solidity",
+
+  "AI Workflows",
+
 ];
 
 const sideBlockVariant = {
@@ -70,27 +115,27 @@ export function About() {
         {/* Bio */}
         <div>
           {[
-            <>
-              <strong className="font-light text-[var(--fg)]">Eight years in product design</strong>, working from Barcelona agencies to Berlin startups. I&apos;ve designed for banks, fitness platforms, a streaming service and a food tech app with over 2 million users.
-            </>,
-            <>
-              <strong className="font-light text-[var(--fg)]">My process is research-first.</strong> I want to understand why users behave the way they do before I open Figma.
-            </>,
-            <>
-              <strong className="font-light text-[var(--fg)]">I own the full design scope,</strong> from early research to shipped components. I like working in teams where decisions get debated properly, not just handed down.
-            </>,
-            <>
-              Since 2018, I&apos;ve served on the <strong className="font-light text-[var(--fg)]">Awwwards Young Jury</strong>, which keeps me honest about craft quality across the industry.
-            </>,
-          ].map((content, i) => (
-            <motion.p
-              key={i}
-              className="mb-6 text-[clamp(17px,1.7vw,22px)] font-light leading-[1.62] text-[var(--muted)] last:mb-0"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-10%" }}
-              transition={{ duration: 0.65, ease: "easeOut", delay: i * 0.08 }}
-            >
+  <>
+    <strong className="font-light text-[var(--fg)]">2 years in software engineering</strong>, building everything from robust web platforms to cross-platform mobile apps. I&apos;ve developed complex backend systems, shipped games in Unity, and deployed smart contracts on Solana and Ethereum.
+  </>,
+  <>
+    <strong className="font-light text-[var(--fg)]">My process is architecture-first.</strong> I need to understand the data flow, security requirements, and business logic before I spin up a Docker container or write a single line of code.
+  </>,
+  <>
+    <strong className="font-light text-[var(--fg)]">I own the full technical scope,</strong> from designing database schemas to delivering highly responsive React frontends. I thrive in teams where technical decisions are driven by product goals, not just the latest framework hype.
+  </>,
+  <>
+    Lately, I&apos;ve been heavily focused on integrating <strong className="font-light text-[var(--fg)]">AI-assisted workflows and agentic coding</strong> into my daily process, which allows me to ship cleaner code and build smarter systems faster than ever.
+  </>,
+].map((content, i) => (
+  <motion.p
+    key={i}
+    className="mb-6 text-[clamp(17px,1.7vw,22px)] font-light leading-[1.62] text-[var(--muted)] last:mb-0"
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: "-10%" }}
+    transition={{ duration: 0.65, ease: "easeOut", delay: i * 0.08 }}
+  >
               {content}
             </motion.p>
           ))}
@@ -99,14 +144,34 @@ export function About() {
             href="/cv.pdf"
             target="_blank"
             rel="noopener"
-            className="mt-5 inline-flex items-center gap-[7px] rounded-full border border-[var(--border)] px-[15px] py-[7px] text-[11px] tracking-[0.08em] uppercase text-[var(--muted)] transition-all duration-300 hover:border-[var(--fg)] hover:bg-[var(--fg)] hover:text-[var(--bg)]"
+            className="cv-btn"
+            style={{
+              marginTop: "20px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "7px",
+              background: "none",
+              border: "1px solid var(--border)",
+              borderRadius: "100px",
+              padding: "7px 15px",
+              color: "var(--muted)",
+              fontFamily: "var(--font-inter), sans-serif",
+              fontSize: "11px",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+              transition: "all 0.3s ease",
+            }}
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-8%" }}
+            viewport={{ once: true }}
             transition={{ duration: 0.65, ease: "easeOut" }}
           >
             View CV
-            <ArrowUpRight className="h-3 w-3" />
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 12L12 2M12 2H4M12 2V10" />
+            </svg>
           </motion.a>
         </div>
 
