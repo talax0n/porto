@@ -25,7 +25,7 @@ const fadeUp = {
 
 const SHADER_COLORS = {
   light: ["#e8e8e8", "#d4d4d4", "#f5f5f5", "#3a3a3a"],
-  dark: ["#0a0a0a", "#1a1a1a", "#3a3a3a", "#252525"],
+  dark: ["#000000", "#1a1a1a", "#333333", "#ffffff"],
 } as const;
 
 export function Hero() {
