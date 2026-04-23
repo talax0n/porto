@@ -344,6 +344,7 @@ function ViewToggle({
 /* ─── Main ─── */
 export function Work() {
   const trackRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
   const [view, setView] = useState<"slider" | "list">("slider");
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -378,6 +379,32 @@ export function Work() {
     };
   }, [checkScroll, view]);
 
+  /* Convert vertical scroll to horizontal when slider is in view */
+  useEffect(() => {
+    if (view !== "slider") return;
+    const section = sectionRef.current;
+    const track = trackRef.current;
+    if (!section || !track) return;
+
+    const onWheel = (e: WheelEvent) => {
+      const maxScroll = track.scrollWidth - track.clientWidth;
+      if (maxScroll <= 0) return;
+
+      const atStart = track.scrollLeft <= 0;
+      const atEnd = track.scrollLeft >= maxScroll - 1;
+
+      // Allow normal page scroll if at edges and scrolling in that direction
+      if (atStart && e.deltaY < 0) return;
+      if (atEnd && e.deltaY > 0) return;
+
+      e.preventDefault();
+      track.scrollLeft += e.deltaY;
+    };
+
+    section.addEventListener("wheel", onWheel, { passive: false });
+    return () => section.removeEventListener("wheel", onWheel);
+  }, [view, projects]);
+
   const scroll = (dir: "left" | "right") => {
     const el = trackRef.current;
     if (!el) return;
@@ -388,7 +415,7 @@ export function Work() {
   };
 
   return (
-    <section id="work" style={{ padding: "140px 0" }} className="max-[900px]:!py-20">
+    <section ref={sectionRef} id="work" style={{ padding: "140px 0" }} className="max-[900px]:!py-20">
       {/* Header */}
       <div
         style={{
