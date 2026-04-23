@@ -1,0 +1,140 @@
+[
+  {
+    "id": "1",
+    "num": "01",
+    "title": "Panora",
+    "category": "Hackathon Projects",
+    "techStack": [
+      "Retention",
+      "Gamification"
+    ],
+    "gradient": "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    "image": "/projects/neotaste-quests.jpg",
+    "href": "/neotaste-quests",
+    "wip": true
+  },
+  {
+    "id": "2",
+    "num": "02",
+    "title": "SpektrumTCG",
+    "category": "Hackathon Projects",
+    "techStack": [
+      "Growth",
+      "A/B Testing"
+    ],
+    "gradient": "linear-gradient(145deg, #001209 0%, #003D1A 55%, #00C96B 100%)",
+    "image": "/projects/referral-growth.jpg",
+    "href": "",
+    "wip": true
+  },
+  {
+    "id": "1776918444664",
+    "num": "03",
+    "title": "RUSA",
+    "category": "Internal Projects",
+    "techStack": [],
+    "gradient": "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    "image": "",
+    "href": "",
+    "wip": false
+  },
+  {
+    "id": "1776918465791",
+    "num": "04",
+    "title": "hoshiBmaTchi",
+    "category": "Internal Projects",
+    "techStack": [],
+    "gradient": "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    "image": "",
+    "href": "",
+    "wip": false
+  },
+  {
+    "id": "1776918481040",
+    "num": "05",
+    "title": "SideQuest",
+    "category": "Hackathon Projects",
+    "techStack": [],
+    "gradient": "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    "image": "",
+    "href": "",
+    "wip": false
+  },
+  {
+    "id": "1776918524611",
+    "num": "06",
+    "title": "GPIB Damai Sejahtera",
+    "category": "Self Project",
+    "techStack": [],
+    "gradient": "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    "image": "",
+    "href": "",
+    "wip": false
+  },
+  {
+    "id": "1776918545007",
+    "num": "07",
+    "title": "Talion",
+    "category": "Self Project",
+    "techStack": [],
+    "gradient": "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    "image": "",
+    "href": "",
+    "wip": true
+  },
+  {
+    "id": "1776918566931",
+    "num": "08",
+    "title": "MahaTask",
+    "category": "Self Project",
+    "techStack": [],
+    "gradient": "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    "image": "",
+    "href": "",
+    "wip": false
+  },
+  {
+    "id": "1776918640867",
+    "num": "09",
+    "title": "ComServ Heroes",
+    "category": "Self Projects",
+    "techStack": [],
+    "gradient": "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    "image": "",
+    "href": "",
+    "wip": false
+  },
+  {
+    "id": "1776918666834",
+    "num": "10",
+    "title": "TasKalender",
+    "category": "Internal Projects",
+    "techStack": [],
+    "gradient": "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    "image": "",
+    "href": "",
+    "wip": false
+  },
+  {
+    "id": "1776918690807",
+    "num": "11",
+    "title": "Portofolio",
+    "category": "Self Projects",
+    "techStack": [],
+    "gradient": "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    "image": "",
+    "href": "",
+    "wip": false
+  },
+  {
+    "id": "1776920380838",
+    "num": "12",
+    "title": "Arcane Ring",
+    "category": "Internal Projects",
+    "techStack": [],
+    "gradient": "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    "image": "",
+    "href": "",
+    "wip": false
+  }
+]

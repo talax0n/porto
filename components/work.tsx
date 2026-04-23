@@ -7,6 +7,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 const EASE: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
 
 interface Project {
+  id?: string;
   num: string;
   title: string;
   category: string;
@@ -17,32 +18,10 @@ interface Project {
   wip?: boolean;
 }
 
-const projects: Project[] = [
-  {
-    num: "01",
-    title: "Turning free trial users into\nloyal members",
-    category: "Case Study",
-    techStack: ["Retention", "Gamification"],
-    gradient: "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
-    image: "/projects/neotaste-quests.jpg",
-    href: "/neotaste-quests",
-  },
-  {
-    num: "02",
-    title: "Finding the right incentive to double referral volume",
-    category: "Case Study",
-    techStack: ["Growth", "A/B Testing"],
-    gradient: "linear-gradient(145deg, #001209 0%, #003D1A 55%, #00C96B 100%)",
-    image: "/projects/referral-growth.jpg",
-    wip: true,
-  },
-];
-
 /* ─── Slider ─── */
-const COLLAPSED_W = 160;
-const EXPANDED_W = 400;
-const STRIP_H = 440;
-const GAP = 8;
+const COLLAPSED_W = 200;
+const EXPANDED_W = 340;
+const GAP = 40;
 
 function SliderStrip({
   project,
@@ -59,8 +38,8 @@ function SliderStrip({
 }) {
   return (
     <motion.article
-      className="relative flex-shrink-0 cursor-pointer overflow-hidden rounded-[var(--radius)] border border-[var(--border)]"
-      style={{ height: STRIP_H }}
+      className="relative flex-shrink-0 cursor-pointer overflow-hidden border border-[var(--border)]"
+      style={{ height: "75vh", minHeight: 500, maxHeight: 720, borderRadius: "6px" }}
       animate={{
         width: isHovered ? EXPANDED_W : COLLAPSED_W,
         borderColor: isHovered ? "var(--border-hover)" : "var(--border)",
@@ -91,24 +70,24 @@ function SliderStrip({
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.15) 50%, transparent 100%)",
+            "linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)",
         }}
       />
 
-      {/* Top */}
-      <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-2.5 p-5">
+      {/* Top-left: number + WIP */}
+      <div className="absolute top-0 left-0 z-10 flex items-center gap-2" style={{ padding: "14px 16px" }}>
         <span
           style={{
-            fontSize: "10px",
-            letterSpacing: "0.1em",
+            fontSize: "9px",
+            letterSpacing: "0.12em",
             fontWeight: 600,
-            color: "rgba(255,255,255,0.3)",
+            color: "rgba(255,255,255,0.35)",
           }}
         >
           {project.num}
         </span>
         {project.wip && (
-          <span className="inline-flex items-center gap-[5px] rounded-full border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.1)] px-2 py-0.5 text-[7px] font-bold tracking-[0.06em] uppercase text-[#F59E0B]">
+          <span className="inline-flex items-center gap-[4px] rounded-full border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.1)] px-[6px] py-[2px] text-[7px] font-bold tracking-[0.06em] uppercase text-[#F59E0B]">
             <span
               className="h-1 w-1 shrink-0 rounded-full bg-[#F59E0B]"
               style={{ animation: "blink 2.2s ease infinite" }}
@@ -118,101 +97,44 @@ function SliderStrip({
         )}
       </div>
 
-      {/* Bottom */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 p-5">
-        <AnimatePresence mode="wait">
-          {!isHovered ? (
-            /* Collapsed: just title */
-            <motion.h3
-              key="collapsed"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              style={{
-                fontFamily: "var(--font-syne), sans-serif",
-                fontSize: "14px",
-                fontWeight: 700,
-                lineHeight: 1.25,
-                letterSpacing: "-0.01em",
-                color: "rgba(255,255,255,0.85)",
-                overflow: "hidden",
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical" as const,
-              }}
-            >
-              {project.title}
-            </motion.h3>
-          ) : (
-            /* Expanded: full info */
-            <motion.div
-              key="expanded"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25, delay: 0.08 }}
-            >
-              <span
-                style={{
-                  fontSize: "9px",
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  fontWeight: 600,
-                  color: "rgba(255,255,255,0.4)",
-                  display: "block",
-                  marginBottom: "10px",
-                }}
-              >
-                {project.category}
-              </span>
-              <h3
-                style={{
-                  fontFamily: "var(--font-syne), sans-serif",
-                  fontSize: "20px",
-                  fontWeight: 800,
-                  lineHeight: 1.2,
-                  letterSpacing: "-0.02em",
-                  color: "#fff",
-                  whiteSpace: "pre-line",
-                }}
-              >
-                {project.title}
-              </h3>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "5px",
-                  marginTop: "14px",
-                }}
-              >
-                {project.techStack.map((t) => (
-                  <span
-                    key={t}
-                    style={{
-                      borderRadius: "100px",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      padding: "3px 9px",
-                      fontSize: "8px",
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      color: "rgba(255,255,255,0.45)",
-                    }}
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-4 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white">
-                <ArrowUpRight
-                  className="h-3 w-3 stroke-black"
-                  style={{ transform: "rotate(45deg)" }}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Right edge: category — vertical text */}
+      <div
+        className="absolute z-10 flex items-center gap-[6px]"
+        style={{
+          top: "14px",
+          right: "12px",
+          writingMode: "vertical-lr",
+          textOrientation: "mixed",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "8px",
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            color: "rgba(255,255,255,0.3)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {project.category}
+        </span>
+      </div>
+
+      {/* Bottom: title */}
+      <div className="absolute bottom-0 left-0 right-0 z-10" style={{ padding: "0 16px 18px" }}>
+        <h3
+          style={{
+            fontFamily: "var(--font-syne), sans-serif",
+            fontSize: "clamp(16px, 1.4vw, 22px)",
+            fontWeight: 800,
+            lineHeight: 1.15,
+            letterSpacing: "-0.02em",
+            color: "#fff",
+          }}
+        >
+          {project.title.replace(/\n/g, " ")}
+        </h3>
       </div>
     </motion.article>
   );
@@ -324,7 +246,7 @@ function ListRow({ project, index }: { project: Project; index: number }) {
           </h3>
         </div>
 
-        {/* Right: category + pills + arrow */}
+        {/* Right: category + wip + arrow */}
         <div
           style={{
             display: "flex",
@@ -334,33 +256,15 @@ function ListRow({ project, index }: { project: Project; index: number }) {
           }}
           className="max-[600px]:!ml-[30px]"
         >
-          <div style={{ display: "flex", gap: "5px" }} className="max-[600px]:!hidden">
-            {project.techStack.map((t) => (
+          {project.wip && (
+            <span className="inline-flex items-center gap-[5px] rounded-full border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.08)] px-2 py-0.5 text-[8px] font-bold tracking-[0.06em] uppercase text-[#F59E0B]">
               <span
-                key={t}
-                style={{
-                  borderRadius: "100px",
-                  border: "1px solid var(--border)",
-                  padding: "3px 10px",
-                  fontSize: "8px",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "var(--muted)",
-                }}
-              >
-                {t}
-              </span>
-            ))}
-            {project.wip && (
-              <span className="inline-flex items-center gap-[5px] rounded-full border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.08)] px-2 py-0.5 text-[8px] font-bold tracking-[0.06em] uppercase text-[#F59E0B]">
-                <span
-                  className="h-1 w-1 shrink-0 rounded-full bg-[#F59E0B]"
-                  style={{ animation: "blink 2.2s ease infinite" }}
-                />
-                WIP
-              </span>
-            )}
-          </div>
+                className="h-1 w-1 shrink-0 rounded-full bg-[#F59E0B]"
+                style={{ animation: "blink 2.2s ease infinite" }}
+              />
+              WIP
+            </span>
+          )}
           <span
             style={{
               fontSize: "9px",
@@ -444,6 +348,14 @@ export function Work() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    fetch("/api/projects")
+      .then((r) => r.json())
+      .then(setProjects)
+      .catch(() => {});
+  }, []);
 
   const checkScroll = useCallback(() => {
     const el = trackRef.current;
@@ -554,7 +466,7 @@ export function Work() {
               gap: `${GAP}px`,
               overflowX: "auto",
               scrollSnapType: "x mandatory",
-              padding: "0 44px",
+              padding: "0 24px 0 44px",
               scrollbarWidth: "none",
             }}
             className="max-[900px]:!px-6 [&::-webkit-scrollbar]:hidden"

@@ -1,75 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowUpRight } from "lucide-react";
-
-const experience = [
-  { company: "Bina Nusantara University", role: "Laboratory Assistant & Internal Projects Developer", years: "Jan 2025 - Now" },
-  { company: "PT KRUUU Technology Indonesia", role: "Fullstack Developer Intern", years: "Dec 2025 - Mar 2026" },
-];
-
-const awards = [
-  { title: "Mentor's Favorite Project", issuer: "Kelas Rutin by Blockdev.id", year: "Nov 2025" },
-  { title: "Second Public Favorites Project", issuer: "Startup Village 2026 by Superteam Indonesia", year: "Apr 2026" },
-];
-
-const skills = [
-
-  "JavaScript",
-
-  "TypeScript",
-
-  "Python",
-
-  "Go",
-
-  "Rust",
-
-  "C#",
-
-  "Kotlin",
-
-  "React",
-
-  "Next.js",
-
-  "Tailwind CSS",
-
-  "Gin",
-
-  "Flask",
-
-  "Laravel",
-
-  "GraphQL",
-
-  "REST API",
-
-  "Docker",
-
-  "Kubernetes",
-
-  "PostgreSQL",
-
-  "MySQL",
-
-  "Redis",
-
-  "Firebase",
-
-  "Git",
-
-  "Kali Linux",
-
-  "Android Studio",
-
-  "Unity",
-
-  "Solidity",
-
-  "AI Workflows",
-
-];
+import { useEffect, useState } from "react";
 
 const sideBlockVariant = {
   hidden: { opacity: 0, y: 24 },
@@ -81,6 +13,22 @@ const sideBlockVariant = {
 };
 
 export function About() {
+  const [experience, setExperience] = useState<{ company: string; role: string; years: string }[]>([]);
+  const [awards, setAwards] = useState<{ title: string; issuer: string; year: string }[]>([]);
+  const [skills, setSkills] = useState<string[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/experience").then((r) => r.json()),
+      fetch("/api/awards").then((r) => r.json()),
+      fetch("/api/skills").then((r) => r.json()),
+    ]).then(([e, a, s]) => {
+      setExperience(e);
+      setAwards(a);
+      setSkills(s);
+    }).catch(() => {});
+  }, []);
+
   return (
     <section id="about" style={{ padding: "120px 44px" }} className="max-[900px]:!px-6 max-[900px]:!py-20">
       {/* Header */}
