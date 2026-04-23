@@ -1,6 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { MeshGradient } from "@paper-design/shaders-react";
+import { useTheme } from "@/components/theme-provider";
 
 const EASE_POWER3: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
 
@@ -21,13 +23,46 @@ const fadeUp = {
   }),
 };
 
+const SHADER_COLORS = {
+  light: ["#e8e8e8", "#d4d4d4", "#f5f5f5", "#3a3a3a"],
+  dark: ["#0a0a0a", "#1a1a1a", "#3a3a3a", "#252525"],
+} as const;
+
 export function Hero() {
+  const { theme } = useTheme();
+
   return (
     <section
       id="hero"
       className="relative flex flex-col justify-end max-[900px]:px-6 max-[900px]:pb-10"
       style={{ minHeight: "100svh", paddingLeft: 80, paddingRight: 64, paddingBottom: 160 }}
     >
+        {/* Shader background with crossfade */}
+        <AnimatePresence mode="sync">
+          <motion.div
+            key={theme}
+            className="!absolute inset-0 w-full h-full -z-10"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: "easeInOut" }}
+          >
+            <MeshGradient
+              className="w-full h-full"
+              colors={[...SHADER_COLORS[theme]]}
+              speed={0.4}
+              distortion={0.8}
+            />
+          </motion.div>
+        </AnimatePresence>
+        {/* Dark mode scrim for text legibility */}
+        <motion.div
+          className="absolute inset-0 -z-[5]"
+          animate={{ opacity: theme === "dark" ? 0.15 : 0 }}
+          transition={{ duration: 0.6, ease: "easeInOut" }}
+          style={{ background: "black" }}
+        />
+
         {/* Eyebrow */}
         <div className="mb-5 overflow-hidden text-[11px] tracking-[0.14em] uppercase text-[var(--muted)]">
           <motion.span

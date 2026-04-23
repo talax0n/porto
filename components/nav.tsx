@@ -67,7 +67,7 @@ export function Nav() {
                   fontWeight: 400,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
-                  color: "var(--muted)",
+                  color: theme === "dark" ? "var(--muted)" : "var(--fg)",
                   transition: "color 0.3s",
                 }}
               >
@@ -85,10 +85,10 @@ export function Nav() {
             alignItems: "center",
             justifyContent: "center",
             background: "none",
-            border: "1px solid var(--border)",
+            border: theme === "dark" ? "1px solid var(--border)" : "1px solid var(--border-hover)",
             borderRadius: 9999,
             padding: 8,
-            color: "var(--muted)",
+            color: theme === "dark" ? "var(--muted)" : "var(--fg)",
             transition: "all 0.3s ease",
             cursor: "pointer",
           }}
