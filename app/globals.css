@@ -17,6 +17,10 @@
 /* ============================================
    THEME VARIABLES
 ============================================ */
+html, body {
+  overscroll-behavior-y: none;
+}
+
 :root {
   --bg: #F0EDE5;
   --bg2: #E8E5DD;
