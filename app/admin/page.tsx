@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Trash2, Plus, X, Upload, ArrowLeft } from "lucide-react";
+import { Trash2, Plus, X, Upload, ArrowLeft, LogOut } from "lucide-react";
 import Link from "next/link";
 
 /* ── Types ── */
@@ -90,6 +90,10 @@ const btnGhost: React.CSSProperties = {
 
 /* ── Main ── */
 export default function AdminDashboard() {
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+
   const [tab, setTab] = useState<Tab>("projects");
   const [projects, setProjects] = useState<Project[]>([]);
   const [experience, setExperience] = useState<Experience[]>([]);
@@ -102,6 +106,33 @@ export default function AdminDashboard() {
   const [editingAward, setEditingAward] = useState<Award | null>(null);
   const [newSkill, setNewSkill] = useState("");
   const [showForm, setShowForm] = useState(false);
+
+  /* Check auth on mount */
+  useEffect(() => {
+    fetch("/api/auth")
+      .then((r) => setAuthed(r.ok))
+      .catch(() => setAuthed(false));
+  }, []);
+
+  const handleLogin = async () => {
+    setAuthError("");
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    if (res.ok) {
+      setAuthed(true);
+    } else {
+      setAuthError("Wrong password");
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch("/api/auth", { method: "DELETE" });
+    setAuthed(false);
+    setPassword("");
+  };
 
   const load = useCallback(async () => {
     const [p, e, a, s, c] = await Promise.all([
@@ -118,7 +149,7 @@ export default function AdminDashboard() {
     setCvExists(c.exists);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (authed) load(); }, [authed, load]);
 
   const resetForm = () => {
     setEditingProject(null);
@@ -226,6 +257,64 @@ export default function AdminDashboard() {
     { key: "cv", label: "CV" },
   ];
 
+  /* Loading */
+  if (authed === null) {
+    return (
+      <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ color: "var(--muted)", fontSize: "14px" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  /* Login screen */
+  if (!authed) {
+    return (
+      <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--fg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: "100%", maxWidth: 360, padding: "0 24px" }}>
+          <h1
+            style={{
+              fontFamily: "var(--font-syne), sans-serif",
+              fontSize: "28px",
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              marginBottom: "8px",
+            }}
+          >
+            Dashboard
+          </h1>
+          <p style={{ fontSize: "14px", color: "var(--muted)", marginBottom: "32px" }}>
+            Enter password to continue
+          </p>
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleLogin(); }}
+            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+          >
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              autoFocus
+              style={inputStyle}
+            />
+            {authError && (
+              <p style={{ fontSize: "13px", color: "#ef4444" }}>{authError}</p>
+            )}
+            <button type="submit" style={btnPrimary}>
+              Sign In
+            </button>
+          </form>
+          <Link
+            href="/"
+            style={{ display: "inline-block", marginTop: "24px", fontSize: "13px", color: "var(--muted)", textDecoration: "none" }}
+          >
+            &larr; Back to portfolio
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--fg)" }}>
       {/* Header */}
@@ -272,6 +361,18 @@ export default function AdminDashboard() {
             </p>
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          style={{
+            ...btnGhost,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
+        >
+          <LogOut size={14} />
+          Logout
+        </button>
       </header>
 
       <div style={{ display: "flex", maxWidth: 1200, margin: "0 auto", padding: "56px 60px" }} className="max-[600px]:!flex-col max-[600px]:!px-5 max-[600px]:!py-6 max-[600px]:!gap-6">
