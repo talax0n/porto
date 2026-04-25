@@ -100,6 +100,7 @@ export default function AdminDashboard() {
   const [awards, setAwards] = useState<Award[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
   const [cvExists, setCvExists] = useState(false);
+  const [cvUrl, setCvUrl] = useState<string | null>(null);
 
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editingExp, setEditingExp] = useState<Experience | null>(null);
@@ -147,6 +148,7 @@ export default function AdminDashboard() {
     setAwards(a);
     setSkills(s);
     setCvExists(c.exists);
+    setCvUrl(c.url ?? null);
   }, []);
 
   useEffect(() => { if (authed) load(); }, [authed, load]);
@@ -241,11 +243,18 @@ export default function AdminDashboard() {
     load();
   };
 
-  /* ── CV Upload ── */
+  /* ── CV ── */
+  const [cvUploading, setCvUploading] = useState(false);
   const uploadCV = async (file: File) => {
+    setCvUploading(true);
     const fd = new FormData();
     fd.append("file", file);
     await api("/api/cv", { method: "POST", body: fd });
+    await load();
+    setCvUploading(false);
+  };
+  const deleteCV = async () => {
+    await api("/api/cv", { method: "DELETE" });
     load();
   };
 
@@ -677,34 +686,70 @@ export default function AdminDashboard() {
                   textAlign: "center",
                 }}
               >
-                <Upload size={32} style={{ margin: "0 auto 16px", color: "var(--muted)" }} />
-                <p style={{ fontSize: "16px", color: "var(--muted)", marginBottom: "6px" }}>
-                  {cvExists ? "CV file exists. Upload to replace." : "No CV uploaded yet."}
-                </p>
-                <p style={{ fontSize: "14px", color: "var(--muted)", opacity: 0.6, marginBottom: "24px" }}>
-                  PDF only
-                </p>
-                <label style={{ ...btnPrimary, display: "inline-block", cursor: "pointer" }}>
-                  Choose File
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) uploadCV(file);
-                    }}
-                  />
-                </label>
-                {cvExists && (
-                  <a
-                    href="/cv.pdf"
-                    target="_blank"
-                    rel="noopener"
-                    style={{ ...btnGhost, display: "inline-block", marginLeft: "8px", textDecoration: "none" }}
-                  >
-                    View Current
-                  </a>
+                {cvUploading ? (
+                  <>
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        margin: "0 auto 16px",
+                        border: "3px solid var(--border)",
+                        borderTopColor: "var(--fg)",
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite",
+                      }}
+                    />
+                    <p style={{ fontSize: "16px", color: "var(--muted)" }}>
+                      Uploading...
+                    </p>
+                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={32} style={{ margin: "0 auto 16px", color: "var(--muted)" }} />
+                    <p style={{ fontSize: "16px", color: "var(--muted)", marginBottom: "6px" }}>
+                      {cvExists ? "CV uploaded. Upload a new file to replace." : "No CV uploaded yet."}
+                    </p>
+                    <p style={{ fontSize: "14px", color: "var(--muted)", opacity: 0.6, marginBottom: "24px" }}>
+                      PDF only
+                    </p>
+                    <label style={{ ...btnPrimary, display: "inline-block", cursor: "pointer" }}>
+                      {cvExists ? "Replace CV" : "Upload CV"}
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        style={{ display: "none" }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadCV(file);
+                        }}
+                      />
+                    </label>
+                    {cvExists && cvUrl && (
+                      <>
+                        <a
+                          href={cvUrl}
+                          target="_blank"
+                          rel="noopener"
+                          style={{ ...btnGhost, display: "inline-block", marginLeft: "8px", textDecoration: "none" }}
+                        >
+                          View Current
+                        </a>
+                        <button
+                          onClick={deleteCV}
+                          style={{ ...btnGhost, marginLeft: "8px", color: "#ef4444", borderColor: "rgba(239,68,68,0.2)" }}
+                        >
+                          <Trash2 size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
+                          Delete
+                        </button>
+                      </>
+                    )}
+                    {cvExists && cvUrl && (
+                      <p style={{ fontSize: "12px", color: "var(--muted)", opacity: 0.5, marginTop: "20px", wordBreak: "break-all" }}>
+                        {cvUrl}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -719,6 +764,17 @@ export default function AdminDashboard() {
 function ProjectForm({ project, onSave, onCancel }: { project: Project; onSave: (p: Project) => void; onCancel: () => void }) {
   const [form, setForm] = useState(project);
   const [techInput, setTechInput] = useState(project.techStack.join(", "));
+  const [uploading, setUploading] = useState(false);
+
+  const handleImageUpload = async (file: File) => {
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.url) setForm((f) => ({ ...f, image: data.url }));
+    setUploading(false);
+  };
 
   return (
     <div style={{ padding: "28px", border: "1px solid var(--border)", borderRadius: "14px", marginBottom: "32px", background: "var(--bg2)" }}>
@@ -739,9 +795,45 @@ function ProjectForm({ project, onSave, onCancel }: { project: Project; onSave: 
           <label style={labelStyle}>Gradient CSS</label>
           <input style={inputStyle} value={form.gradient} onChange={(e) => setForm({ ...form, gradient: e.target.value })} />
         </div>
-        <div>
-          <label style={labelStyle}>Image Path</label>
-          <input style={inputStyle} value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} placeholder="/projects/example.jpg" />
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={labelStyle}>Project Image</label>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <input
+              style={{ ...inputStyle, flex: 1 }}
+              value={form.image}
+              onChange={(e) => setForm({ ...form, image: e.target.value })}
+              placeholder="Image URL or upload"
+            />
+            <label
+              style={{
+                ...btnGhost,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                cursor: uploading ? "wait" : "pointer",
+                opacity: uploading ? 0.5 : 1,
+                flexShrink: 0,
+              }}
+            >
+              <Upload size={14} />
+              {uploading ? "Uploading..." : "Upload"}
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(file);
+                }}
+              />
+            </label>
+          </div>
+          {form.image && (
+            <div style={{ marginTop: "12px", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border)", maxWidth: "200px" }}>
+              <img src={form.image} alt="Preview" style={{ width: "100%", height: "auto", display: "block" }} />
+            </div>
+          )}
         </div>
         <div>
           <label style={labelStyle}>Link (href)</label>

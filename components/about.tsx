@@ -16,16 +16,19 @@ export function About() {
   const [experience, setExperience] = useState<{ company: string; role: string; years: string }[]>([]);
   const [awards, setAwards] = useState<{ title: string; issuer: string; year: string }[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
+  const [cvUrl, setCvUrl] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/experience").then((r) => r.json()),
       fetch("/api/awards").then((r) => r.json()),
       fetch("/api/skills").then((r) => r.json()),
-    ]).then(([e, a, s]) => {
+      fetch("/api/cv").then((r) => r.json()),
+    ]).then(([e, a, s, c]) => {
       setExperience(e);
       setAwards(a);
       setSkills(s);
+      if (c.url) setCvUrl(c.url);
     }).catch(() => {});
   }, []);
 
@@ -88,39 +91,71 @@ export function About() {
             </motion.p>
           ))}
 
-          <motion.a
-            href="/cv.pdf"
-            target="_blank"
-            rel="noopener"
-            className="cv-btn"
-            style={{
-              marginTop: "20px",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "7px",
-              background: "none",
-              border: "1px solid var(--border)",
-              borderRadius: "100px",
-              padding: "7px 15px",
-              color: "var(--muted)",
-              fontFamily: "var(--font-inter), sans-serif",
-              fontSize: "11px",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-              transition: "all 0.3s ease",
-            }}
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.65, ease: "easeOut" }}
-          >
-            View CV
-            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 12L12 2M12 2H4M12 2V10" />
-            </svg>
-          </motion.a>
+          {cvUrl && (
+            <motion.div
+              style={{ display: "flex", gap: "8px", marginTop: "20px" }}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.65, ease: "easeOut" }}
+            >
+              <a
+                href={cvUrl}
+                target="_blank"
+                rel="noopener"
+                className="cv-btn"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  background: "none",
+                  border: "1px solid var(--border)",
+                  borderRadius: "100px",
+                  padding: "7px 15px",
+                  color: "var(--muted)",
+                  fontFamily: "var(--font-inter), sans-serif",
+                  fontSize: "11px",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.3s ease",
+                }}
+              >
+                View CV
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 12L12 2M12 2H4M12 2V10" />
+                </svg>
+              </a>
+              <a
+                href={cvUrl}
+                download="cv.pdf"
+                className="cv-btn"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  background: "none",
+                  border: "1px solid var(--border)",
+                  borderRadius: "100px",
+                  padding: "7px 15px",
+                  color: "var(--muted)",
+                  fontFamily: "var(--font-inter), sans-serif",
+                  fontSize: "11px",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.3s ease",
+                }}
+              >
+                Download
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 2v8M3 7l4 4 4-4M2 13h10" />
+                </svg>
+              </a>
+            </motion.div>
+          )}
         </div>
 
         {/* Side */}
