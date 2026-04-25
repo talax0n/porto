@@ -10,10 +10,12 @@ interface Project {
   num: string;
   title: string;
   category: string;
+  description: string;
   techStack: string[];
   gradient: string;
   image: string;
   href: string;
+  github: string;
   wip: boolean;
 }
 interface Experience {
@@ -432,7 +434,7 @@ export default function AdminDashboard() {
                 </h2>
                 <button
                   onClick={() => {
-                    setEditingProject({ id: "new", num: "", title: "", category: "", techStack: [], gradient: "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)", image: "", href: "", wip: false });
+                    setEditingProject({ id: "new", num: "", title: "", category: "", description: "", techStack: [], gradient: "linear-gradient(145deg, #0a0a0a 0%, #1a1a1a 55%, #2a2a2a 100%)", image: "", href: "", github: "", wip: false });
                     setShowForm(true);
                   }}
                   style={btnGhost}
@@ -787,6 +789,15 @@ function ProjectForm({ project, onSave, onCancel }: { project: Project; onSave: 
           <label style={labelStyle}>Category</label>
           <input style={inputStyle} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
         </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={labelStyle}>Description</label>
+          <textarea
+            style={{ ...inputStyle, minHeight: "100px", resize: "vertical" }}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Short project description..."
+          />
+        </div>
         <div>
           <label style={labelStyle}>Tech Stack (comma separated)</label>
           <input style={inputStyle} value={techInput} onChange={(e) => setTechInput(e.target.value)} />
@@ -837,7 +848,11 @@ function ProjectForm({ project, onSave, onCancel }: { project: Project; onSave: 
         </div>
         <div>
           <label style={labelStyle}>Link (href)</label>
-          <input style={inputStyle} value={form.href} onChange={(e) => setForm({ ...form, href: e.target.value })} placeholder="/project-slug" />
+          <input style={inputStyle} value={form.href} onChange={(e) => setForm({ ...form, href: e.target.value })} placeholder="https://example.com" />
+        </div>
+        <div>
+          <label style={labelStyle}>GitHub URL</label>
+          <input style={inputStyle} value={form.github} onChange={(e) => setForm({ ...form, github: e.target.value })} placeholder="https://github.com/user/repo" />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <input type="checkbox" checked={form.wip} onChange={(e) => setForm({ ...form, wip: e.target.checked })} id="wip" />

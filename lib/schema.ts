@@ -5,10 +5,12 @@ export const projects = pgTable("projects", {
   num: text("num").notNull(),
   title: text("title").notNull(),
   category: text("category").notNull(),
+  description: text("description").notNull().default(""),
   techStack: text("tech_stack").array().notNull().default([]),
   gradient: text("gradient").notNull().default(""),
   image: text("image").notNull().default(""),
   href: text("href").notNull().default(""),
+  github: text("github").notNull().default(""),
   wip: boolean("wip").notNull().default(false),
 });
 

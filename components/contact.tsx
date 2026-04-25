@@ -7,9 +7,8 @@ const EMAIL = "theo.niomba@gmail.com";
 
 const socials = [
   { label: "Email", href: `mailto:${EMAIL}` },
-  { label: "LinkedIn", href: "https://www.linkedin.com/in/david-rodriguez-product-designer/", external: true },
-  { label: "Dribbble", href: "https://dribbble.com/dvdrod", external: true },
-  { label: "Gumroad", href: "https://dvdrod.gumroad.com/", external: true },
+  { label: "LinkedIn", href: "https://linkedin.com/in/theola-aristo-putra-niomba-27708a389", external: true },
+  { label: "GitHub", href: "https://github.com/talax0n", external: true },
 ];
 
 export function Contact() {

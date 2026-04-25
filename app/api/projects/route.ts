@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     techStack: body.techStack ?? [],
     gradient:
       body.gradient ??
-      "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+      "linear-gradient(145deg, #0a0a0a 0%, #1a1a1a 55%, #2a2a2a 100%)",
     image: body.image ?? "",
     href: body.href ?? "",
     wip: body.wip ?? false,

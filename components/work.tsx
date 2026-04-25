@@ -6,6 +6,13 @@ import { useRef, useState, useCallback, useEffect } from "react";
 
 const EASE: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 interface Project {
   id?: string;
   num: string;
@@ -56,7 +63,7 @@ function SliderStrip({
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
       onClick={() => {
-        if (project.href) window.location.href = project.href;
+        window.location.href = `/projects/${slugify(project.title)}`;
       }}
     >
       {/* BG */}
@@ -65,7 +72,19 @@ function SliderStrip({
         style={{ background: project.gradient }}
         animate={{ scale: isHovered ? 1.06 : 1 }}
         transition={{ duration: 0.9, ease: EASE }}
-      />
+      >
+        {project.image && (
+          <img
+            src={project.image}
+            alt={project.title}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        )}
+      </motion.div>
       <div
         className="absolute inset-0"
         style={{
@@ -143,18 +162,7 @@ function SliderStrip({
 /* ─── List Row with spotlight ─── */
 function ListRow({ project, index }: { project: Project; index: number }) {
   const rowRef = useRef<HTMLElement>(null);
-  const spotlightRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const el = rowRef.current;
-    const spot = spotlightRef.current;
-    if (!el || !spot) return;
-    const rect = el.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    spot.style.background = `radial-gradient(ellipse 400px 300px at ${x}% ${y}%, transparent 0%, var(--bg) 100%)`;
-  }, []);
 
   return (
     <motion.article
@@ -167,32 +175,33 @@ function ListRow({ project, index }: { project: Project; index: number }) {
       transition={{ duration: 0.6, ease: EASE, delay: index * 0.05 }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onMouseMove={handleMouseMove}
       onClick={() => {
-        if (project.href) window.location.href = project.href;
+        window.location.href = `/projects/${slugify(project.title)}`;
       }}
     >
       {/* Background image/gradient — always present */}
       <div
         className="absolute inset-0 z-0"
         style={{ background: project.gradient }}
-      />
-      {/* Overlay — fades down on hover to reveal BG */}
+      >
+        {project.image && (
+          <img
+            src={project.image}
+            alt={project.title}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        )}
+      </div>
+      {/* Dim overlay — lightens on hover */}
       <motion.div
         className="absolute inset-0 z-[1]"
-        animate={{ opacity: hovered ? 0.55 : 1 }}
+        animate={{ opacity: hovered ? 0 : 0.55 }}
         transition={{ duration: 0.45, ease: EASE }}
         style={{ background: "var(--bg)" }}
-      />
-
-      {/* Spotlight mask — follows cursor via direct DOM updates */}
-      <div
-        ref={spotlightRef}
-        className="pointer-events-none absolute inset-0 z-[2] transition-opacity duration-300"
-        style={{
-          opacity: hovered ? 1 : 0,
-          background: "radial-gradient(ellipse 400px 300px at 50% 50%, transparent 0%, var(--bg) 100%)",
-        }}
       />
 
       {/* Accent top line */}
@@ -219,18 +228,21 @@ function ListRow({ project, index }: { project: Project; index: number }) {
       >
         {/* Left: num + title */}
         <div style={{ display: "flex", alignItems: "baseline", gap: "20px", flex: 1, minWidth: 0 }}>
-          <span
+          <motion.span
+            animate={{ color: hovered ? "rgba(255,255,255,0.5)" : "var(--muted)" }}
+            transition={{ duration: 0.35, ease: EASE }}
             style={{
               fontSize: "10px",
               letterSpacing: "0.1em",
               fontWeight: 600,
-              color: "var(--muted)",
               flexShrink: 0,
             }}
           >
             {project.num}
-          </span>
-          <h3
+          </motion.span>
+          <motion.h3
+            animate={{ color: hovered ? "#fff" : "var(--fg)" }}
+            transition={{ duration: 0.35, ease: EASE }}
             style={{
               fontFamily: "var(--font-syne), sans-serif",
               fontSize: "clamp(20px, 2.8vw, 32px)",
@@ -240,10 +252,11 @@ function ListRow({ project, index }: { project: Project; index: number }) {
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
+              textShadow: hovered ? "0 1px 8px rgba(0,0,0,0.5)" : "none",
             }}
           >
             {project.title.replace(/\n/g, " ")}
-          </h3>
+          </motion.h3>
         </div>
 
         {/* Right: category + wip + arrow */}
@@ -265,24 +278,32 @@ function ListRow({ project, index }: { project: Project; index: number }) {
               WIP
             </span>
           )}
-          <span
+          <motion.span
+            animate={{ color: hovered ? "rgba(255,255,255,0.5)" : "var(--muted)" }}
+            transition={{ duration: 0.35, ease: EASE }}
             style={{
               fontSize: "9px",
               letterSpacing: "0.12em",
               textTransform: "uppercase",
               fontWeight: 600,
-              color: "var(--muted)",
             }}
             className="max-[900px]:!hidden"
           >
             {project.category}
-          </span>
+          </motion.span>
           <motion.div
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] transition-colors duration-[400ms] group-hover:border-[var(--fg)] group-hover:bg-[var(--fg)]"
-            animate={{ rotate: hovered ? 45 : 0 }}
+            className="flex h-8 w-8 items-center justify-center rounded-full border"
+            animate={{
+              rotate: hovered ? 45 : 0,
+              borderColor: hovered ? "rgba(255,255,255,0.4)" : "var(--border)",
+              backgroundColor: hovered ? "#fff" : "transparent",
+            }}
             transition={{ duration: 0.4, ease: EASE }}
           >
-            <ArrowUpRight className="h-3 w-3 text-[var(--fg)] transition-colors duration-[400ms] group-hover:text-[var(--bg)]" />
+            <ArrowUpRight
+              className="h-3 w-3"
+              style={{ color: hovered ? "#000" : "var(--fg)", transition: "color 0.4s" }}
+            />
           </motion.div>
         </div>
       </div>
