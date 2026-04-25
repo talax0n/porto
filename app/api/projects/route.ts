@@ -1,47 +1,61 @@
-import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
-
-const FILE = join(process.cwd(), "data/projects.json");
-
-function read() {
-  return JSON.parse(readFileSync(FILE, "utf-8"));
-}
-
-function write(data: unknown) {
-  writeFileSync(FILE, JSON.stringify(data, null, 2));
-}
+import { db } from "@/lib/db";
+import { projects } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 
 export async function GET() {
-  return Response.json(read());
+  const rows = await db.select().from(projects).orderBy(projects.id);
+  return Response.json(
+    rows.map((r) => ({
+      ...r,
+      id: String(r.id),
+    }))
+  );
 }
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const projects = read();
-  const id = String(Date.now());
-  const num = String(projects.length + 1).padStart(2, "0");
-  projects.push({ id, num, ...body });
-  write(projects);
+  const rows = await db.select().from(projects);
+  const num = String(rows.length + 1).padStart(2, "0");
+  await db.insert(projects).values({
+    num,
+    title: body.title,
+    category: body.category,
+    techStack: body.techStack ?? [],
+    gradient:
+      body.gradient ??
+      "linear-gradient(145deg, #001A0A 0%, #004A20 55%, #00A854 100%)",
+    image: body.image ?? "",
+    href: body.href ?? "",
+    wip: body.wip ?? false,
+  });
   return Response.json({ ok: true });
 }
 
 export async function PUT(req: Request) {
   const body = await req.json();
-  const projects = read();
-  const idx = projects.findIndex((p: { id: string }) => p.id === body.id);
-  if (idx === -1) return Response.json({ error: "Not found" }, { status: 404 });
-  projects[idx] = { ...projects[idx], ...body };
-  write(projects);
+  const id = Number(body.id);
+  const { id: _, ...data } = body;
+  const result = await db.update(projects).set(data).where(eq(projects.id, id));
+  if (!result.rowCount) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
   return Response.json({ ok: true });
 }
 
 export async function DELETE(req: Request) {
   const { id } = await req.json();
-  let projects = read();
-  projects = projects.filter((p: { id: string }) => p.id !== id);
-  projects.forEach((p: { num: string }, i: number) => {
-    p.num = String(i + 1).padStart(2, "0");
-  });
-  write(projects);
+  await db.delete(projects).where(eq(projects.id, Number(id)));
+
+  // Re-number remaining projects
+  const rows = await db.select().from(projects).orderBy(projects.id);
+  for (let i = 0; i < rows.length; i++) {
+    const num = String(i + 1).padStart(2, "0");
+    if (rows[i].num !== num) {
+      await db
+        .update(projects)
+        .set({ num })
+        .where(eq(projects.id, rows[i].id));
+    }
+  }
   return Response.json({ ok: true });
 }

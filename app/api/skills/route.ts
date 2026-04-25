@@ -1,33 +1,20 @@
-import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
-
-const FILE = join(process.cwd(), "data/skills.json");
-
-function read() {
-  return JSON.parse(readFileSync(FILE, "utf-8"));
-}
-
-function write(data: unknown) {
-  writeFileSync(FILE, JSON.stringify(data, null, 2));
-}
+import { db } from "@/lib/db";
+import { skills } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 
 export async function GET() {
-  return Response.json(read());
+  const rows = await db.select().from(skills).orderBy(skills.id);
+  return Response.json(rows.map((r) => r.name));
 }
 
 export async function POST(req: Request) {
   const { skill } = await req.json();
-  const items = read();
-  if (!items.includes(skill)) {
-    items.push(skill);
-    write(items);
-  }
+  await db.insert(skills).values({ name: skill }).onConflictDoNothing();
   return Response.json({ ok: true });
 }
 
 export async function DELETE(req: Request) {
   const { skill } = await req.json();
-  const items = read().filter((s: string) => s !== skill);
-  write(items);
+  await db.delete(skills).where(eq(skills.name, skill));
   return Response.json({ ok: true });
 }

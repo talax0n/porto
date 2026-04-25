@@ -1,43 +1,40 @@
-import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
-
-const FILE = join(process.cwd(), "data/experience.json");
-
-function read() {
-  return JSON.parse(readFileSync(FILE, "utf-8"));
-}
-
-function write(data: unknown) {
-  writeFileSync(FILE, JSON.stringify(data, null, 2));
-}
+import { db } from "@/lib/db";
+import { experience } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 
 export async function GET() {
-  return Response.json(read());
+  const rows = await db.select().from(experience).orderBy(experience.id);
+  return Response.json(
+    rows.map((r) => ({ ...r, id: String(r.id) }))
+  );
 }
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const items = read();
-  const id = String(Date.now());
-  items.push({ id, ...body });
-  write(items);
+  await db.insert(experience).values({
+    company: body.company,
+    role: body.role,
+    years: body.years,
+  });
   return Response.json({ ok: true });
 }
 
 export async function PUT(req: Request) {
   const body = await req.json();
-  const items = read();
-  const idx = items.findIndex((e: { id: string }) => e.id === body.id);
-  if (idx === -1) return Response.json({ error: "Not found" }, { status: 404 });
-  items[idx] = { ...items[idx], ...body };
-  write(items);
+  const id = Number(body.id);
+  const { id: _, ...data } = body;
+  const result = await db
+    .update(experience)
+    .set(data)
+    .where(eq(experience.id, id));
+  if (!result.rowCount) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
   return Response.json({ ok: true });
 }
 
 export async function DELETE(req: Request) {
   const { id } = await req.json();
-  let items = read();
-  items = items.filter((e: { id: string }) => e.id !== id);
-  write(items);
+  await db.delete(experience).where(eq(experience.id, Number(id)));
   return Response.json({ ok: true });
 }
