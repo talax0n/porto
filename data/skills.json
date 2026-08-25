@@ -1,29 +1,110 @@
 [
-  "JavaScript",
-  "TypeScript",
-  "Python",
-  "Go",
-  "Rust",
-  "C#",
-  "Kotlin",
-  "React",
-  "Next.js",
-  "Tailwind CSS",
-  "Gin",
-  "Flask",
-  "Laravel",
-  "GraphQL",
-  "REST API",
-  "Docker",
-  "Kubernetes",
-  "PostgreSQL",
-  "MySQL",
-  "Redis",
-  "Firebase",
-  "Git",
-  "Kali Linux",
-  "Android Studio",
-  "Unity",
-  "Solidity",
-  "AI Workflows"
+  {
+    "name": "JavaScript",
+    "category": "Languages"
+  },
+  {
+    "name": "TypeScript",
+    "category": "Languages"
+  },
+  {
+    "name": "Python",
+    "category": "Languages"
+  },
+  {
+    "name": "Go",
+    "category": "Languages"
+  },
+  {
+    "name": "Rust",
+    "category": "Languages"
+  },
+  {
+    "name": "C#",
+    "category": "Languages"
+  },
+  {
+    "name": "Kotlin",
+    "category": "Languages"
+  },
+  {
+    "name": "React",
+    "category": "Frontend"
+  },
+  {
+    "name": "Next.js",
+    "category": "Frontend"
+  },
+  {
+    "name": "Tailwind CSS",
+    "category": "Frontend"
+  },
+  {
+    "name": "Gin",
+    "category": "Backend"
+  },
+  {
+    "name": "Flask",
+    "category": "Backend"
+  },
+  {
+    "name": "Laravel",
+    "category": "Backend"
+  },
+  {
+    "name": "GraphQL",
+    "category": "Backend"
+  },
+  {
+    "name": "REST API",
+    "category": "Backend"
+  },
+  {
+    "name": "Docker",
+    "category": "DevOps & Deployment"
+  },
+  {
+    "name": "Kubernetes",
+    "category": "DevOps & Deployment"
+  },
+  {
+    "name": "PostgreSQL",
+    "category": "Database"
+  },
+  {
+    "name": "MySQL",
+    "category": "Database"
+  },
+  {
+    "name": "Redis",
+    "category": "Database"
+  },
+  {
+    "name": "Firebase",
+    "category": "Database"
+  },
+  {
+    "name": "Git",
+    "category": "Tools & Other"
+  },
+  {
+    "name": "Kali Linux",
+    "category": "Tools & Other"
+  },
+  {
+    "name": "Android Studio",
+    "category": "Tools & Other"
+  },
+  {
+    "name": "Unity",
+    "category": "Tools & Other"
+  },
+  {
+    "name": "Solidity",
+    "category": "Blockchain"
+  },
+  {
+    "name": "AI Workflows",
+    "category": "Tools & Other"
+  }
 ]

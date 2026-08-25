@@ -1,5 +1,7 @@
 import { pgTable, text, boolean, serial } from "drizzle-orm/pg-core";
 
+export { SKILL_CATEGORIES, type SkillCategory } from "./skill-categories";
+
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   num: text("num").notNull(),
@@ -31,4 +33,5 @@ export const awards = pgTable("awards", {
 export const skills = pgTable("skills", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
+  category: text("category").notNull().default("Tools & Other"),
 });

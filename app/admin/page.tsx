@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { SKILL_CATEGORIES } from "@/lib/skill-categories";
 import { Trash2, Plus, X, Upload, ArrowLeft, LogOut } from "lucide-react";
 import Link from "next/link";
 
@@ -32,6 +33,11 @@ interface Award {
 }
 
 type Tab = "projects" | "experience" | "awards" | "skills" | "cv";
+
+interface Skill {
+  name: string;
+  category: string;
+}
 
 /* ── Helpers ── */
 async function api(path: string, opts?: RequestInit) {
@@ -100,7 +106,7 @@ export default function AdminDashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [experience, setExperience] = useState<Experience[]>([]);
   const [awards, setAwards] = useState<Award[]>([]);
-  const [skills, setSkills] = useState<string[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
   const [cvExists, setCvExists] = useState(false);
   const [cvUrl, setCvUrl] = useState<string | null>(null);
 
@@ -108,6 +114,8 @@ export default function AdminDashboard() {
   const [editingExp, setEditingExp] = useState<Experience | null>(null);
   const [editingAward, setEditingAward] = useState<Award | null>(null);
   const [newSkill, setNewSkill] = useState("");
+  const [newSkillCategory, setNewSkillCategory] =
+    useState<string>("Tools & Other");
   const [showForm, setShowForm] = useState(false);
 
   /* Check auth on mount */
@@ -231,11 +239,21 @@ export default function AdminDashboard() {
     await api("/api/skills", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ skill: newSkill.trim() }),
+      body: JSON.stringify({ skill: newSkill.trim(), category: newSkillCategory }),
     });
     setNewSkill("");
     load();
   };
+
+  const setSkillCategory = async (skill: string, category: string) => {
+    await api("/api/skills", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ skill, category }),
+    });
+    load();
+  };
+
   const removeSkill = async (s: string) => {
     await api("/api/skills", {
       method: "DELETE",
@@ -632,42 +650,86 @@ export default function AdminDashboard() {
                 Skills
               </h2>
 
-              <div style={{ display: "flex", gap: "8px", marginBottom: "32px" }}>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "32px", flexWrap: "wrap" }}>
                 <input
                   value={newSkill}
                   onChange={(e) => setNewSkill(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addSkill()}
                   placeholder="Add a skill..."
-                  style={{ ...inputStyle, flex: 1 }}
+                  style={{ ...inputStyle, flex: 1, minWidth: "200px" }}
                 />
+                <select
+                  value={newSkillCategory}
+                  onChange={(e) => setNewSkillCategory(e.target.value)}
+                  style={{ ...inputStyle, width: "auto" }}
+                >
+                  {SKILL_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
                 <button onClick={addSkill} style={btnPrimary}>
                   Add
                 </button>
               </div>
 
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                {skills.map((s) => (
-                  <span
-                    key={s}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      fontSize: "14px",
-                      padding: "10px 18px",
-                      border: "1px solid var(--border)",
-                      borderRadius: "100px",
-                      color: "var(--muted)",
-                    }}
-                  >
-                    {s}
-                    <button
-                      onClick={() => removeSkill(s)}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "flex" }}
-                    >
-                      <X size={14} />
-                    </button>
-                  </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+                {SKILL_CATEGORIES.filter((c) =>
+                  skills.some((s) => s.category === c)
+                ).map((c) => (
+                  <div key={c}>
+                    <h3 style={{ fontSize: "11px", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "12px" }}>
+                      {c}
+                    </h3>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                      {skills
+                        .filter((s) => s.category === c)
+                        .map((s) => (
+                          <span
+                            key={s.name}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "10px",
+                              fontSize: "14px",
+                              padding: "8px 10px 8px 18px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "100px",
+                              color: "var(--muted)",
+                            }}
+                          >
+                            {s.name}
+                            <select
+                              value={s.category}
+                              onChange={(e) => setSkillCategory(s.name, e.target.value)}
+                              aria-label={`Category for ${s.name}`}
+                              style={{
+                                background: "none",
+                                border: "1px solid var(--border)",
+                                borderRadius: "100px",
+                                color: "var(--muted)",
+                                fontSize: "11px",
+                                padding: "3px 6px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {SKILL_CATEGORIES.map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => removeSkill(s.name)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "flex" }}
+                            >
+                              <X size={14} />
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

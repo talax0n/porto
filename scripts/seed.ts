@@ -56,7 +56,7 @@ async function seed() {
 
   console.log("Seeding skills...");
   for (const s of skillsData) {
-    await db.insert(skills).values({ name: s });
+    await db.insert(skills).values({ name: s.name, category: s.category });
   }
   console.log(`  Inserted ${skillsData.length} skills`);
 

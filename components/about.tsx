@@ -2,67 +2,29 @@
 
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-
-const sideBlockVariant = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.65, ease: "easeOut" as const, delay: i * 0.1 },
-  }),
-};
+import { SectionHeading } from "@/components/section-heading";
 
 export function About() {
-  const [experience, setExperience] = useState<{ company: string; role: string; years: string }[]>([]);
-  const [awards, setAwards] = useState<{ title: string; issuer: string; year: string }[]>([]);
-  const [skills, setSkills] = useState<string[]>([]);
   const [cvUrl, setCvUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/experience").then((r) => r.json()),
-      fetch("/api/awards").then((r) => r.json()),
-      fetch("/api/skills").then((r) => r.json()),
-      fetch("/api/cv").then((r) => r.json()),
-    ]).then(([e, a, s, c]) => {
-      setExperience(e);
-      setAwards(a);
-      setSkills(s);
-      if (c.url) setCvUrl(c.url);
-    }).catch(() => {});
+    fetch("/api/cv")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((c: { url?: string }) => {
+        if (c.url) setCvUrl(c.url);
+      })
+      .catch(() => {});
   }, []);
 
   return (
-    <section id="about" style={{ padding: "120px 44px" }} className="max-[900px]:!px-6 max-[900px]:!py-20">
-      {/* Header */}
-      <div style={{ paddingBottom: "20px", borderBottom: "1px solid var(--border)", marginBottom: "64px" }} className="flex items-center justify-between max-[900px]:!mb-10">
-        <div>
-          <p className="mb-2 text-[10px] tracking-[0.14em] uppercase text-[var(--muted)]">
-            My story
-          </p>
-          <motion.h2
-            className="text-[clamp(52px,8vw,110px)] font-extrabold leading-[0.88] tracking-[-0.045em] max-[480px]:text-[14vw]"
-            style={{ fontFamily: "var(--font-syne), sans-serif", overflow: "hidden", paddingBottom: "0.15em" }}
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.01 }}
-          >
-            <motion.span
-              className="block"
-              initial={{ y: "110%" }}
-              whileInView={{ y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 1.05, ease: [0.25, 0.46, 0.45, 0.94] }}
-            >
-              About
-            </motion.span>
-          </motion.h2>
-        </div>
-      </div>
+    <section
+      id="about"
+      style={{ padding: "var(--section-y) var(--pad)" }}
+    >
+      <SectionHeading eyebrow="My story" title="About" />
 
       {/* Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: "80px", marginTop: "80px" }} className="max-[900px]:!grid-cols-1 max-[900px]:!gap-12 max-[900px]:!mt-12">
+      <div className="mt-12 max-w-[70ch] min-[901px]:mt-20">
         {/* Bio */}
         <div>
           {[
@@ -158,125 +120,6 @@ export function About() {
           )}
         </div>
 
-        {/* Side */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "44px" }}>
-          {/* Experience */}
-          <motion.div
-            variants={sideBlockVariant}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-12%" }}
-            custom={0}
-          >
-            <h3 style={{ fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "16px" }}>
-              Experience
-            </h3>
-            <ul style={{ display: "flex", flexDirection: "column" }}>
-              {experience.map((e) => (
-                <li
-                  key={e.company}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                    padding: "14px 0",
-                    borderBottom: "1px solid var(--border)",
-                    gap: "12px",
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                    <span
-                      style={{
-                        fontFamily: "var(--font-syne), sans-serif",
-                        fontSize: "14px",
-                        fontWeight: 700,
-                        letterSpacing: "-0.01em",
-                      }}
-                    >
-                      {e.company}
-                    </span>
-                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>{e.role}</span>
-                  </div>
-                  <span style={{ fontSize: "11px", color: "var(--muted)", whiteSpace: "nowrap", flexShrink: 0 }}>{e.years}</span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-
-          {/* Awards */}
-          <motion.div
-            variants={sideBlockVariant}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-12%" }}
-            custom={1}
-          >
-            <h3 style={{ fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "16px" }}>
-              Awards
-            </h3>
-            <ul style={{ display: "flex", flexDirection: "column" }}>
-              {awards.map((a) => (
-                <li
-                  key={a.title}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                    padding: "14px 0",
-                    borderBottom: "1px solid var(--border)",
-                    gap: "12px",
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                    <span
-                      style={{
-                        fontFamily: "var(--font-syne), sans-serif",
-                        fontSize: "14px",
-                        fontWeight: 700,
-                        letterSpacing: "-0.01em",
-                      }}
-                    >
-                      {a.title}
-                    </span>
-                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>{a.issuer}</span>
-                  </div>
-                  <span style={{ fontSize: "11px", color: "var(--muted)", whiteSpace: "nowrap", flexShrink: 0 }}>{a.year}</span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-
-          {/* Skills */}
-          <motion.div
-            variants={sideBlockVariant}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-12%" }}
-            custom={2}
-          >
-            <h3 style={{ fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--muted)", marginBottom: "16px" }}>
-              Skills
-            </h3>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "7px" }}>
-              {skills.map((s) => (
-                <span
-                  key={s}
-                  style={{
-                    fontSize: "11px",
-                    letterSpacing: "0.06em",
-                    padding: "6px 14px",
-                    border: "1px solid var(--border)",
-                    borderRadius: "100px",
-                    color: "var(--muted)",
-                  }}
-                >
-                  {s}
-                </span>
-              ))}
-            </div>
-          </motion.div>
-
-        </div>
       </div>
     </section>
   );

@@ -23,7 +23,12 @@ export function Contact() {
   };
 
   return (
-    <section id="contact" style={{ padding: "120px 44px 80px" }}>
+    <section
+      id="contact"
+      style={{
+        padding: "var(--section-y) var(--pad) calc(64px + env(safe-area-inset-bottom))",
+      }}
+    >
       {/* Label */}
       <p
         style={{
@@ -44,7 +49,7 @@ export function Contact() {
           fontWeight: 800,
           letterSpacing: "-0.045em",
           lineHeight: 0.88,
-          margin: "56px 0 72px",
+          margin: "clamp(32px, 6vw, 56px) 0 clamp(40px, 7vw, 72px)",
         }}
       >
         <span style={{ display: "block" }}>Say hi!</span>
@@ -87,14 +92,7 @@ export function Contact() {
       </div>
 
       {/* Footer row */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          paddingTop: 36,
-        }}
-      >
+      <div className="flex flex-col gap-8 pt-9 min-[601px]:flex-row min-[601px]:items-end min-[601px]:justify-between">
         {/* Left: email + location */}
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div
@@ -111,6 +109,7 @@ export function Contact() {
             <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.7 }}>{EMAIL}</p>
             <button
               data-copy-btn=""
+              className="copy-btn"
               onClick={copyEmail}
               aria-label="Copy email address"
               style={{
@@ -122,6 +121,7 @@ export function Contact() {
                 padding: 2,
                 color: copied ? "#00C96B" : "var(--muted)",
                 opacity: copied ? 1 : 0,
+                // revealed on hover (desktop) — forced visible on touch via .copy-btn rule
                 transition: "opacity 0.2s ease, color 0.2s ease",
                 cursor: "pointer",
               }}
@@ -133,7 +133,7 @@ export function Contact() {
         </div>
 
         {/* Right: social links */}
-        <div style={{ display: "flex", gap: 24 }}>
+        <div className="flex flex-wrap gap-6">
           {socials.map((s) => (
             <SocialLink key={s.label} {...s} />
           ))}

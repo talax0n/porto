@@ -21,6 +21,18 @@ html, body {
   overscroll-behavior-y: none;
 }
 
+/* Responsive gutter — single source of truth for section padding */
+:root {
+  --pad: 44px;
+  --section-y: 140px;
+}
+@media (max-width: 900px) {
+  :root {
+    --pad: 20px;
+    --section-y: 84px;
+  }
+}
+
 :root {
   --bg: #F0EDE5;
   --bg2: #E8E5DD;
@@ -113,22 +125,38 @@ html, body {
 /* ============================================
    RESET & BASE
 ============================================ */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* @layer base — unlayered CSS outranks Tailwind's layered utilities,
+   so an unlayered `* { padding: 0 }` would silently kill every p-* / m-* class */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 html {
   scroll-behavior: smooth;
 }
 
+html {
+  background: var(--bg);
+  transition: background var(--transition);
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   font-family: var(--font-inter), system-ui, sans-serif;
-  background: var(--bg);
+  /* transparent so the fixed GradientWaves canvas shows through */
+  background: transparent;
   color: var(--fg);
   overflow-x: hidden;
-  transition: background var(--transition), color var(--transition);
+  transition: color var(--transition);
+}
+
+/* Nothing may push the page sideways on small screens */
+img, svg, video, canvas {
+  max-width: 100%;
 }
 
 a {
@@ -190,6 +218,15 @@ body::after {
 }
 @media (max-width: 900px) {
   .nav-links-list { display: none !important; }
+  .desktop-nav { display: none !important; }
+}
+@media (min-width: 901px) {
+  .mobile-nav { display: none !important; }
+}
+
+/* Touch targets */
+@media (hover: none) {
+  a, button { -webkit-tap-highlight-color: transparent; }
 }
 
 /* ============================================
@@ -221,6 +258,42 @@ body::after {
 }
 
 /* ============================================
+   STAGGERED MENU — theme bridge
+   !important: the component ships its own <style> tag,
+   which lands after this sheet in document order.
+============================================ */
+.sm-scope .staggered-menu-panel {
+  background: var(--bg2) !important;
+  padding: 7em var(--pad) calc(2em + env(safe-area-inset-bottom)) !important;
+}
+.sm-scope .sm-panel-item { color: var(--fg) !important; }
+.sm-scope .sm-panel-item:hover { color: var(--accent) !important; }
+.sm-scope .sm-socials-link { color: var(--muted) !important; }
+.sm-scope .sm-socials-link:hover { color: var(--accent) !important; }
+.sm-scope .sm-panel-item {
+  font-size: clamp(2.1rem, 9.5vw, 3.6rem) !important;
+  font-family: var(--font-syne), sans-serif;
+}
+.sm-scope .sm-socials-title { color: var(--accent) !important; }
+.sm-scope .sm-logo-text,
+.sm-scope .sm-toggle,
+.sm-scope .staggered-menu-wrapper[data-open] .sm-toggle { color: var(--fg) !important; }
+.sm-scope .staggered-menu-header { padding: 20px var(--pad) !important; }
+/* upstream sizes the item to its text and parks the counter at right:3.2em,
+   so long labels ("Experience") run straight through the number. Full-width
+   items put every counter in one aligned column at the panel edge instead. */
+.sm-scope .sm-panel-item {
+  display: block !important;
+  width: 100% !important;
+  padding-right: 0 !important;
+}
+.sm-scope .sm-panel-list[data-numbering] .sm-panel-item::after {
+  right: 0 !important;
+  top: 0.15em !important;
+  font-size: 13px !important;
+}
+
+/* ============================================
    HERO TEXT LEGIBILITY ON SHADER BG
 ============================================ */
 [data-theme="dark"] #hero {
@@ -241,4 +314,10 @@ body::after {
 ::view-transition-old(root), ::view-transition-new(root) {
     animation: none;
     mix-blend-mode: normal;
+}
+/* ============================================
+   CONTACT — copy button always reachable on touch
+============================================ */
+@media (hover: none) {
+  .copy-btn { opacity: 1 !important; }
 }

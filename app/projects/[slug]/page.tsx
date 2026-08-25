@@ -21,6 +21,46 @@ interface Project {
 
 const EASE: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
 
+const toUrl = (v?: string) =>
+  v ? (v.startsWith("http") ? v : `https://${v}`) : null;
+
+/* ── Shell: back bar shared by every state ── */
+function BackBar() {
+  return (
+    <div className="fixed top-0 right-0 left-0 z-50 flex items-center px-[var(--pad)] py-4 backdrop-blur-md">
+      <Link
+        href="/#work"
+        className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg2)]/70 px-4 py-2 text-[11px] font-medium tracking-[0.08em] text-[var(--fg)] uppercase transition-colors hover:border-[var(--border-hover)]"
+      >
+        <ArrowLeft size={14} />
+        Back
+      </Link>
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div className="px-[var(--pad)] pt-24">
+      <div className="h-[38vh] min-h-[240px] w-full animate-pulse rounded-2xl bg-[var(--bg2)]" />
+      <div className="mt-10 h-8 w-2/3 max-w-md animate-pulse rounded bg-[var(--bg2)]" />
+      <div className="mt-4 h-4 w-full max-w-xl animate-pulse rounded bg-[var(--bg2)]" />
+      <div className="mt-2 h-4 w-5/6 max-w-lg animate-pulse rounded bg-[var(--bg2)]" />
+    </div>
+  );
+}
+
+function MetaBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="mb-4 border-b border-[var(--border)] pb-2.5 text-[10px] font-semibold tracking-[0.14em] text-[var(--muted)] uppercase">
+        {title}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
 export default function ProjectDetailPage({
   params,
 }: {
@@ -29,7 +69,7 @@ export default function ProjectDetailPage({
   const { slug } = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [missing, setMissing] = useState(false);
 
   useEffect(() => {
     fetch(`/api/projects/${slug}`)
@@ -38,343 +78,167 @@ export default function ProjectDetailPage({
         return r.json();
       })
       .then(setProject)
-      .catch(() => setNotFound(true))
+      .catch(() => setMissing(true))
       .finally(() => setLoading(false));
   }, [slug]);
 
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "var(--bg)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          style={{ color: "var(--muted)", fontSize: "14px", letterSpacing: "0.1em" }}
-        >
-          Loading...
-        </motion.p>
-      </div>
+      <main className="min-h-[100svh]">
+        <BackBar />
+        <Skeleton />
+      </main>
     );
   }
 
-  if (notFound || !project) {
+  if (missing || !project) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "var(--bg)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "24px",
-        }}
-      >
+      <main className="flex min-h-[100svh] flex-col items-center justify-center gap-6 px-[var(--pad)] text-center">
         <p
-          style={{
-            fontFamily: "var(--font-syne), sans-serif",
-            fontSize: "24px",
-            fontWeight: 800,
-            color: "var(--fg)",
-          }}
+          className="text-2xl font-extrabold"
+          style={{ fontFamily: "var(--font-syne), sans-serif" }}
         >
           Project not found
         </p>
         <Link
           href="/#work"
-          style={{
-            fontSize: "14px",
-            color: "var(--accent)",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-          }}
+          className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)]"
         >
           <ArrowLeft size={16} />
           Back to projects
         </Link>
-      </div>
+      </main>
     );
   }
 
-  // Ensure href is a proper external URL
-  const projectUrl = project.href
-    ? project.href.startsWith("http")
-      ? project.href
-      : `https://${project.href}`
-    : null;
-
-  const githubUrl = project.github
-    ? project.github.startsWith("http")
-      ? project.github
-      : `https://${project.github}`
-    : null;
+  const projectUrl = toUrl(project.href);
+  const githubUrl = toUrl(project.github);
+  const title = project.title.replace(/\n/g, " ");
+  const hasActions = Boolean(projectUrl || githubUrl);
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--fg)" }}>
-      {/* ── Hero Banner ── */}
-      <div
-        style={{
-          position: "relative",
-          width: "100%",
-          height: "45vh",
-          minHeight: "320px",
-          overflow: "hidden",
-        }}
-      >
-        {/* Gradient background */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: project.gradient,
-          }}
-        />
-        {/* Image overlay if present */}
-        {project.image && (
-          <img
-            src={project.image}
-            alt={project.title}
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              opacity: 0.4,
-              mixBlendMode: "overlay",
-            }}
-          />
-        )}
-        {/* Dark overlay at bottom */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.1) 100%)",
-          }}
-        />
+    <main className="min-h-[100svh] pb-[env(safe-area-inset-bottom)]">
+      <BackBar />
 
-        {/* Back button */}
+      {/* ── Hero ── */}
+      <section className="px-[var(--pad)] pt-20 min-[901px]:pt-24">
         <motion.div
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, ease: EASE }}
-          style={{ position: "absolute", top: "32px", left: "44px", zIndex: 10 }}
-          className="max-[900px]:!left-6 max-[900px]:!top-6"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: EASE }}
+          className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-[var(--border)] min-[601px]:aspect-[21/9]"
         >
-          <Link
-            href="/#work"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              color: "rgba(255,255,255,0.7)",
-              fontSize: "13px",
-              letterSpacing: "0.06em",
-              fontWeight: 500,
-              textDecoration: "none",
-              transition: "color 0.3s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+          <div className="absolute inset-0" style={{ background: project.gradient }} />
+          {project.image && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={project.image}
+              alt={title}
+              className="absolute inset-0 h-full w-full object-cover"
+              onError={(e) => (e.currentTarget.style.display = "none")}
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+
+          <div className="absolute right-5 bottom-5 left-5 min-[901px]:right-9 min-[901px]:bottom-9 min-[901px]:left-9">
+            <div className="mb-3 flex flex-wrap items-center gap-2.5">
+              <span className="text-[10px] font-semibold tracking-[0.14em] text-white/50 uppercase">
+                {project.num} — {project.category}
+              </span>
+              {project.wip && (
+                <span className="inline-flex items-center gap-[5px] rounded-full border border-[rgba(245,158,11,0.35)] bg-[rgba(245,158,11,0.12)] px-2.5 py-1 text-[9px] font-bold tracking-[0.06em] text-[#F59E0B] uppercase">
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F59E0B]"
+                    style={{ animation: "blink 2.2s ease infinite" }}
+                  />
+                  Work in Progress
+                </span>
+              )}
+            </div>
+            <h1
+              className="text-[clamp(30px,6vw,72px)] leading-[0.95] font-extrabold tracking-[-0.04em] text-white"
+              style={{ fontFamily: "var(--font-syne), sans-serif" }}
+            >
+              {title}
+            </h1>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* ── Body ── */}
+      <section className="mx-auto grid max-w-[1100px] grid-cols-1 gap-12 px-[var(--pad)] pt-14 pb-24 min-[901px]:grid-cols-[1fr_280px] min-[901px]:gap-20 min-[901px]:pt-20">
+        {/* Prose */}
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: EASE, delay: 0.12 }}
+          className="min-[901px]:order-1"
+        >
+          <h2
+            className="mb-5 text-[11px] font-bold tracking-[0.14em] text-[var(--accent)] uppercase"
+            style={{ fontFamily: "var(--font-syne), sans-serif" }}
           >
-            <ArrowLeft size={18} />
-            Back
-          </Link>
+            About the Project
+          </h2>
+          <p className="max-w-[62ch] text-[clamp(15px,1.5vw,18px)] leading-[1.75] text-[var(--fg)] whitespace-pre-line">
+            {project.description || "No description available yet."}
+          </p>
+
+          {project.image && (
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-10%" }}
+              transition={{ duration: 0.6, ease: EASE }}
+              className="mt-12 overflow-hidden rounded-xl border border-[var(--border)]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={project.image}
+                alt={title}
+                className="block h-auto w-full"
+                onError={(e) => (e.currentTarget.closest("div")?.remove())}
+              />
+            </motion.div>
+          )}
         </motion.div>
 
-        {/* Hero content */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            padding: "0 44px 48px",
-            zIndex: 10,
-          }}
-          className="max-[900px]:!px-6 max-[900px]:!pb-8"
+        {/* Meta — first on mobile, sticky rail on desktop */}
+        <motion.aside
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: EASE, delay: 0.2 }}
+          className="flex flex-col gap-9 min-[901px]:order-2 min-[901px]:sticky min-[901px]:top-24 min-[901px]:self-start"
         >
-          <motion.span
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: EASE, delay: 0.1 }}
-            style={{
-              fontSize: "10px",
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.45)",
-              fontWeight: 600,
-              display: "block",
-              marginBottom: "12px",
-            }}
-          >
-            {project.num} &mdash; {project.category}
-          </motion.span>
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: EASE, delay: 0.15 }}
-            style={{
-              fontFamily: "var(--font-syne), sans-serif",
-              fontSize: "clamp(36px, 6vw, 72px)",
-              fontWeight: 800,
-              lineHeight: 0.95,
-              letterSpacing: "-0.04em",
-              color: "#fff",
-            }}
-          >
-            {project.title.replace(/\n/g, " ")}
-          </motion.h1>
-          {project.wip && (
-            <motion.span
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="inline-flex items-center gap-[5px] rounded-full border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.12)] px-2.5 py-1 text-[9px] font-bold tracking-[0.06em] uppercase text-[#F59E0B]"
-              style={{ marginTop: "16px" }}
-            >
-              <span
-                className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F59E0B]"
-                style={{ animation: "blink 2.2s ease infinite" }}
-              />
-              Work in Progress
-            </motion.span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Content ── */}
-      <div
-        style={{
-          maxWidth: "1100px",
-          margin: "0 auto",
-          padding: "80px 44px 120px",
-        }}
-        className="max-[900px]:!px-6 max-[900px]:!py-12"
-      >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "280px 1fr",
-            gap: "80px",
-          }}
-          className="max-[900px]:!grid-cols-1 max-[900px]:!gap-10"
-        >
-          {/* ── Left sidebar ── */}
-          <motion.aside
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: EASE, delay: 0.2 }}
-          >
-            {/* Tech Stack */}
-            <div style={{ marginBottom: "40px" }}>
-              <h3
-                style={{
-                  fontSize: "10px",
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: "var(--muted)",
-                  fontWeight: 600,
-                  marginBottom: "16px",
-                  paddingBottom: "10px",
-                  borderBottom: "1px solid var(--border)",
-                }}
-              >
-                Tech Stack
-              </h3>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                {project.techStack.map((tech) => (
-                  <span
-                    key={tech}
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 500,
-                      padding: "6px 14px",
-                      border: "1px solid var(--border)",
-                      borderRadius: "100px",
-                      color: "var(--fg)",
-                      letterSpacing: "0.02em",
-                    }}
-                  >
-                    {tech}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Category */}
-            <div style={{ marginBottom: "40px" }}>
-              <h3
-                style={{
-                  fontSize: "10px",
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: "var(--muted)",
-                  fontWeight: 600,
-                  marginBottom: "12px",
-                  paddingBottom: "10px",
-                  borderBottom: "1px solid var(--border)",
-                }}
-              >
-                Category
-              </h3>
-              <p style={{ fontSize: "14px", color: "var(--fg)" }}>
-                {project.category}
-              </p>
-            </div>
-
-            {/* Links */}
-            {(projectUrl || githubUrl) && (
-              <div>
-                <h3
-                  style={{
-                    fontSize: "10px",
-                    letterSpacing: "0.14em",
-                    textTransform: "uppercase",
-                    color: "var(--muted)",
-                    fontWeight: 600,
-                    marginBottom: "16px",
-                    paddingBottom: "10px",
-                    borderBottom: "1px solid var(--border)",
-                  }}
+          <MetaBlock title="Tech Stack">
+            <div className="flex flex-wrap gap-1.5">
+              {project.techStack.map((tech) => (
+                <span
+                  key={tech}
+                  className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-xs font-medium"
                 >
-                  Links
-                </h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {tech}
+                </span>
+              ))}
+            </div>
+          </MetaBlock>
+
+          <MetaBlock title="Category">
+            <p className="text-sm">{project.category}</p>
+          </MetaBlock>
+
+          {/* Desktop links — mobile gets the sticky bar below */}
+          {hasActions && (
+            <div className="hidden min-[901px]:block">
+              <MetaBlock title="Links">
+                <div className="flex flex-col gap-2.5">
                   {projectUrl && (
                     <a
                       href={projectUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        padding: "12px 24px",
-                        fontSize: "13px",
-                        fontWeight: 600,
-                        letterSpacing: "0.04em",
-                        color: "#fff",
-                        background: "var(--fg)",
-                        border: "none",
-                        borderRadius: "100px",
-                        textDecoration: "none",
-                        transition: "opacity 0.3s",
-                        width: "100%",
-                        justifyContent: "center",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-                      onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                      className="inline-flex w-full items-center justify-center gap-2.5 rounded-full bg-[var(--fg)] px-6 py-3 text-[13px] font-semibold tracking-[0.04em] transition-opacity hover:opacity-85"
+                      style={{ color: "var(--bg)" }}
                     >
                       <ArrowUpRight size={16} />
                       Visit Project
@@ -385,107 +249,47 @@ export default function ProjectDetailPage({
                       href={githubUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        padding: "12px 24px",
-                        fontSize: "13px",
-                        fontWeight: 600,
-                        letterSpacing: "0.04em",
-                        color: "var(--fg)",
-                        background: "transparent",
-                        border: "1px solid var(--border)",
-                        borderRadius: "100px",
-                        textDecoration: "none",
-                        transition: "all 0.3s",
-                        width: "100%",
-                        justifyContent: "center",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = "var(--border-hover)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "var(--border)";
-                      }}
+                      className="inline-flex w-full items-center justify-center gap-2.5 rounded-full border border-[var(--border)] px-6 py-3 text-[13px] font-semibold tracking-[0.04em] transition-colors hover:border-[var(--border-hover)]"
                     >
                       <ExternalLink size={16} />
                       View on GitHub
                     </a>
                   )}
                 </div>
-              </div>
-            )}
-          </motion.aside>
-
-          {/* ── Main content ── */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: EASE, delay: 0.3 }}
-          >
-            {/* Description */}
-            <div>
-              <h2
-                style={{
-                  fontFamily: "var(--font-syne), sans-serif",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: "var(--accent)",
-                  marginBottom: "20px",
-                }}
-              >
-                About the Project
-              </h2>
-              <p
-                style={{
-                  fontSize: "17px",
-                  lineHeight: 1.75,
-                  color: "var(--fg)",
-                  maxWidth: "620px",
-                }}
-              >
-                {project.description || "No description available yet."}
-              </p>
+              </MetaBlock>
             </div>
+          )}
+        </motion.aside>
+      </section>
 
-            {/* Divider */}
-            <div
-              style={{
-                height: "1px",
-                background: "var(--border)",
-                margin: "48px 0",
-              }}
-            />
-
-            {/* Project image if available */}
-            {project.image && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: EASE, delay: 0.45 }}
-                style={{
-                  borderRadius: "12px",
-                  overflow: "hidden",
-                  border: "1px solid var(--border)",
-                }}
-              >
-                <img
-                  src={project.image}
-                  alt={project.title}
-                  style={{
-                    width: "100%",
-                    height: "auto",
-                    display: "block",
-                  }}
-                />
-              </motion.div>
-            )}
-          </motion.div>
+      {/* ── Mobile sticky actions ── */}
+      {hasActions && (
+        <div className="fixed right-0 bottom-0 left-0 z-40 flex gap-2 border-t border-[var(--border)] bg-[var(--bg)]/85 px-[var(--pad)] pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-lg min-[901px]:hidden">
+          {projectUrl && (
+            <a
+              href={projectUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[var(--fg)] px-5 py-3 text-[13px] font-semibold"
+              style={{ color: "var(--bg)" }}
+            >
+              <ArrowUpRight size={16} />
+              Visit
+            </a>
+          )}
+          {githubUrl && (
+            <a
+              href={githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="View on GitHub"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-[var(--border)] px-5 py-3 text-[13px] font-semibold"
+            >
+              <ExternalLink size={16} />
+            </a>
+          )}
         </div>
-      </div>
-    </div>
+      )}
+    </main>
   );
 }
