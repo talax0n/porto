@@ -79,7 +79,21 @@ html, body {
   --font-geist-mono: "Geist Mono", monospace;
 }
 
+/* Contribution heatmap ramp — brand accent rather than GitHub green */
+:root {
+  --contrib-0: transparent;
+  --contrib-1: rgba(255, 61, 0, 0.22);
+  --contrib-2: rgba(255, 61, 0, 0.45);
+  --contrib-3: rgba(255, 61, 0, 0.7);
+  --contrib-4: #FF3D00;
+}
+
 [data-theme="dark"] {
+  --contrib-0: rgba(237, 237, 232, 0.07);
+  --contrib-1: rgba(255, 90, 42, 0.3);
+  --contrib-2: rgba(255, 90, 42, 0.55);
+  --contrib-3: rgba(255, 90, 42, 0.75);
+  --contrib-4: #FF5A2A;
   --bg: #0C0C0B;
   --bg2: #141413;
   --fg: #EDEDE8;

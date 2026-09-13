@@ -5,38 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import AccordionGallery, {
   type AccordionGalleryItem,
 } from "@/components/reactbits/AccordionGallery";
+import { PROJECTS } from "@/data/projects";
+import { slugify } from "@/lib/slugify";
 
 const EASE: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
 
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
-interface Project {
-  id?: string;
-  num: string;
-  title: string;
-  category: string;
-  techStack: string[];
-  gradient: string;
-  image?: string;
-  href?: string;
-  wip?: boolean;
-}
-
 export function Work() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const projects = PROJECTS;
   const [compact, setCompact] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/projects")
-      .then((r) => r.json())
-      .then(setProjects)
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 900px)");
@@ -52,8 +28,7 @@ export function Work() {
         image: p.image || "",
         gradient: p.gradient,
         label: p.title.replace(/\n/g, " "),
-        sublabel: `${p.num} — ${p.category}`,
-        badge: p.wip ? "WIP" : undefined,
+        sublabel: p.num,
         link: `/projects/${slugify(p.title)}`,
         alt: p.title.replace(/\n/g, " "),
       })),

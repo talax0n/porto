@@ -1,23 +1,11 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowUpRight, ExternalLink } from "lucide-react";
 import Link from "next/link";
-
-interface Project {
-  id: string;
-  num: string;
-  title: string;
-  category: string;
-  description: string;
-  techStack: string[];
-  gradient: string;
-  image?: string;
-  href?: string;
-  github?: string;
-  wip?: boolean;
-}
+import { PROJECTS } from "@/data/projects";
+import { slugify } from "@/lib/slugify";
 
 const EASE: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
 
@@ -39,17 +27,6 @@ function BackBar() {
   );
 }
 
-function Skeleton() {
-  return (
-    <div className="px-[var(--pad)] pt-24">
-      <div className="h-[38vh] min-h-[240px] w-full animate-pulse rounded-2xl bg-[var(--bg2)]" />
-      <div className="mt-10 h-8 w-2/3 max-w-md animate-pulse rounded bg-[var(--bg2)]" />
-      <div className="mt-4 h-4 w-full max-w-xl animate-pulse rounded bg-[var(--bg2)]" />
-      <div className="mt-2 h-4 w-5/6 max-w-lg animate-pulse rounded bg-[var(--bg2)]" />
-    </div>
-  );
-}
-
 function MetaBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
@@ -67,31 +44,9 @@ export default function ProjectDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
-  const [project, setProject] = useState<Project | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [missing, setMissing] = useState(false);
+  const project = PROJECTS.find((p) => slugify(p.title) === slug);
 
-  useEffect(() => {
-    fetch(`/api/projects/${slug}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("Not found");
-        return r.json();
-      })
-      .then(setProject)
-      .catch(() => setMissing(true))
-      .finally(() => setLoading(false));
-  }, [slug]);
-
-  if (loading) {
-    return (
-      <main className="min-h-[100svh]">
-        <BackBar />
-        <Skeleton />
-      </main>
-    );
-  }
-
-  if (missing || !project) {
+  if (!project) {
     return (
       <main className="flex min-h-[100svh] flex-col items-center justify-center gap-6 px-[var(--pad)] text-center">
         <p
@@ -143,17 +98,8 @@ export default function ProjectDetailPage({
           <div className="absolute right-5 bottom-5 left-5 min-[901px]:right-9 min-[901px]:bottom-9 min-[901px]:left-9">
             <div className="mb-3 flex flex-wrap items-center gap-2.5">
               <span className="text-[10px] font-semibold tracking-[0.14em] text-white/50 uppercase">
-                {project.num} — {project.category}
+                {project.num}
               </span>
-              {project.wip && (
-                <span className="inline-flex items-center gap-[5px] rounded-full border border-[rgba(245,158,11,0.35)] bg-[rgba(245,158,11,0.12)] px-2.5 py-1 text-[9px] font-bold tracking-[0.06em] text-[#F59E0B] uppercase">
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F59E0B]"
-                    style={{ animation: "blink 2.2s ease infinite" }}
-                  />
-                  Work in Progress
-                </span>
-              )}
             </div>
             <h1
               className="text-[clamp(30px,6vw,72px)] leading-[0.95] font-extrabold tracking-[-0.04em] text-white"
@@ -221,10 +167,6 @@ export default function ProjectDetailPage({
                 </span>
               ))}
             </div>
-          </MetaBlock>
-
-          <MetaBlock title="Category">
-            <p className="text-sm">{project.category}</p>
           </MetaBlock>
 
           {/* Desktop links — mobile gets the sticky bar below */}

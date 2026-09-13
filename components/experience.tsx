@@ -1,28 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { SectionHeading } from "@/components/section-heading";
-
-interface Entry {
-  company: string;
-  role: string;
-  years: string;
-}
+import { EXPERIENCE } from "@/data/experience";
 
 const EASE: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
 
 export function Experience() {
-  const [entries, setEntries] = useState<Entry[]>([]);
-
-  useEffect(() => {
-    fetch("/api/experience")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setEntries)
-      .catch(() => {});
-  }, []);
-
-  if (entries.length === 0) return null;
+  const entries = EXPERIENCE;
 
   return (
     <section

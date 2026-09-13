@@ -6,14 +6,16 @@ import { useTheme } from "@/components/theme-provider";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import StaggeredMenu from "@/components/reactbits/StaggeredMenu";
 
-const LINKS = ["Work", "About", "Experience", "Skills", "Awards", "Contact"];
+const LINKS = ["Work", "About", "Experience", "Skills", "Commits", "Awards", "Contact"];
 /* the desktop bar gets crowded past four — the rest stay in the mobile menu */
 const DESKTOP_LINKS = ["Work", "About", "Skills", "Contact"];
+
+const SECTION_IDS: Record<string, string> = { Commits: "contributions" };
 
 const MENU_ITEMS = LINKS.map((label) => ({
   label,
   ariaLabel: `Go to ${label.toLowerCase()} section`,
-  link: `#${label.toLowerCase()}`,
+  link: `#${SECTION_IDS[label] ?? label.toLowerCase()}`,
 }));
 
 const SOCIALS = [
@@ -84,7 +86,7 @@ export function Nav() {
             {DESKTOP_LINKS.map((item) => (
               <li key={item}>
                 <a
-                  href={`#${item.toLowerCase()}`}
+                  href={`#${SECTION_IDS[item] ?? item.toLowerCase()}`}
                   className="nav-link"
                   style={{
                     fontSize: 12,

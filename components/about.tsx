@@ -4,16 +4,16 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { SectionHeading } from "@/components/section-heading";
 
+/* Drop cv.pdf into /public to enable the View/Download buttons below. */
+const CV_URL = "/cv.pdf";
+
 export function About() {
-  const [cvUrl, setCvUrl] = useState<string | null>(null);
+  const [cvAvailable, setCvAvailable] = useState(false);
 
   useEffect(() => {
-    fetch("/api/cv")
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((c: { url?: string }) => {
-        if (c.url) setCvUrl(c.url);
-      })
-      .catch(() => {});
+    fetch(CV_URL, { method: "HEAD" })
+      .then((r) => setCvAvailable(r.ok))
+      .catch(() => setCvAvailable(false));
   }, []);
 
   return (
@@ -53,7 +53,7 @@ export function About() {
             </motion.p>
           ))}
 
-          {cvUrl && (
+          {cvAvailable && (
             <motion.div
               style={{ display: "flex", gap: "8px", marginTop: "20px" }}
               initial={{ opacity: 0, y: 16 }}
@@ -62,7 +62,7 @@ export function About() {
               transition={{ duration: 0.65, ease: "easeOut" }}
             >
               <a
-                href={cvUrl}
+                href={CV_URL}
                 target="_blank"
                 rel="noopener"
                 className="cv-btn"
@@ -90,7 +90,7 @@ export function About() {
                 </svg>
               </a>
               <a
-                href={cvUrl}
+                href={CV_URL}
                 download="cv.pdf"
                 className="cv-btn"
                 style={{

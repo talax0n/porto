@@ -1,28 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { SectionHeading } from "@/components/section-heading";
-
-interface Award {
-  title: string;
-  issuer: string;
-  year: string;
-}
+import { AWARDS } from "@/data/awards";
 
 const EASE: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
 
 export function Awards() {
-  const [awards, setAwards] = useState<Award[]>([]);
-
-  useEffect(() => {
-    fetch("/api/awards")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setAwards)
-      .catch(() => {});
-  }, []);
-
-  if (awards.length === 0) return null;
+  const awards = AWARDS;
 
   return (
     <section id="awards" style={{ padding: "var(--section-y) var(--pad)" }}>

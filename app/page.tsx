@@ -6,6 +6,7 @@ import { Work } from "@/components/work";
 import { About } from "@/components/about";
 import { Experience } from "@/components/experience";
 import { Skills } from "@/components/skills";
+import { Contributions } from "@/components/contributions";
 import { Awards } from "@/components/awards";
 import { Contact } from "@/components/contact";
 
@@ -21,6 +22,7 @@ export default function Home() {
         <About />
         <Experience />
         <Skills />
+        <Contributions />
         <Awards />
         <Contact />
       </main>

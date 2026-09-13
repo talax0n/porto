@@ -1,33 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { SectionHeading } from "@/components/section-heading";
+import { SkillIcon } from "@/components/skill-icon";
 import { SKILL_CATEGORIES } from "@/lib/skill-categories";
-
-interface Skill {
-  name: string;
-  category: string;
-}
+import { SKILLS } from "@/data/skills";
 
 const EASE: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
 
 export function Skills() {
-  const [skills, setSkills] = useState<Skill[]>([]);
-
-  useEffect(() => {
-    fetch("/api/skills")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setSkills)
-      .catch(() => {});
-  }, []);
-
   // Known categories first, in schema order; anything unrecognised trails behind.
   const groups = useMemo(() => {
-    const byCategory = new Map<string, string[]>();
-    for (const s of skills) {
+    const byCategory = new Map<string, typeof SKILLS>();
+    for (const s of SKILLS) {
       const list = byCategory.get(s.category) ?? [];
-      list.push(s.name);
+      list.push(s);
       byCategory.set(s.category, list);
     }
     const known = SKILL_CATEGORIES.filter((c) => byCategory.has(c));
@@ -38,9 +26,7 @@ export function Skills() {
       category: c,
       items: byCategory.get(c)!,
     }));
-  }, [skills]);
-
-  if (groups.length === 0) return null;
+  }, []);
 
   return (
     <section id="skills" style={{ padding: "var(--section-y) var(--pad)" }}>
@@ -60,12 +46,13 @@ export function Skills() {
               {g.category}
             </h3>
             <div className="flex flex-wrap gap-2">
-              {g.items.map((name) => (
+              {g.items.map((s) => (
                 <span
-                  key={name}
-                  className="rounded-full border border-[var(--border)] px-4 py-1.5 text-[13px] transition-colors hover:border-[var(--border-hover)]"
+                  key={s.name}
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-4 py-1.5 text-[13px] transition-colors hover:border-[var(--border-hover)]"
                 >
-                  {name}
+                  <SkillIcon name={s.name} icon={s.icon} />
+                  {s.name}
                 </span>
               ))}
             </div>

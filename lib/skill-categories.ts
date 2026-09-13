@@ -1,4 +1,3 @@
-/* Standalone so client components can import it without pulling in drizzle. */
 export const SKILL_CATEGORIES = [
   "Languages",
   "Frontend",
