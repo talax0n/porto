@@ -33,7 +33,7 @@ export function CameraRig() {
   useFrame(({ size, camera }, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
     const k = 1 - Math.exp(-dt * 4);
-    const baseZoom = clamp(size.width / 30, 24, 60);
+    const baseZoom = clamp(Math.min(size.width / 30, size.height / 20), 10, 60);
     const narrow = size.width < 768;
 
     let zoom = baseZoom * ctl.zoomMul;
@@ -44,6 +44,9 @@ export function CameraRig() {
       // keep the station visible beside the HUD panel
       if (narrow) desired.addScaledVector(DOWN, (size.height * 0.2) / (zoom * GROUND_FORESHORTEN));
       else desired.addScaledVector(RIGHT, Math.min(260, size.width * 0.17) / zoom);
+    } else if (narrow) {
+      // the whole room fits a phone screen only when framed from its center
+      desired.set(0, 0, 0);
     } else {
       desired.set(ctl.player.x, 0, ctl.player.z);
     }
