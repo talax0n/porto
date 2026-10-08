@@ -1,0 +1,53 @@
+import { useEffect, useRef } from "react";
+import { useThree } from "@react-three/fiber";
+import { Object3D, type InstancedMesh } from "three";
+import { STATION_BY_ID } from "@/data/stations";
+import { useContributions } from "../contributions";
+import { CLAY, TONE, box, paint } from "./clay";
+import { PLINTH_HEIGHT } from "./layout";
+import { bakeShadows } from "./shadows";
+
+const WEEKS = 16;
+const DAYS = 7;
+const PITCH = 0.165;
+const CELL = 0.14;
+const geo = paint(box(CELL, 1, CELL, 0.03).clone(), TONE.white);
+
+/** The last 16 weeks as extruded clay cells, one instanced draw call. */
+export function GithubGrid() {
+  const load = useContributions();
+  const ref = useRef<InstancedMesh>(null);
+  const gl = useThree((s) => s.gl);
+  const [px, pz] = STATION_BY_ID.github.plinth;
+
+  useEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const dummy = new Object3D();
+    const weeks = load.status === "ok" ? load.data.weeks.slice(-WEEKS) : [];
+    for (let w = 0; w < WEEKS; w++) {
+      for (let d = 0; d < DAYS; d++) {
+        const level = weeks[w]?.[d]?.level ?? 0;
+        const h = 0.05 + level * 0.14;
+        dummy.position.set((w - (WEEKS - 1) / 2) * PITCH, PLINTH_HEIGHT + 0.12 + h / 2, (d - (DAYS - 1) / 2) * PITCH - 0.4);
+        dummy.scale.set(1, h, 1);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(w * DAYS + d, dummy.matrix);
+      }
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    bakeShadows(gl);
+  }, [load, gl]);
+
+  return (
+    <instancedMesh
+      ref={ref}
+      args={[geo, CLAY, WEEKS * DAYS]}
+      position={[px, 0, pz]}
+      frustumCulled={false}
+      castShadow
+      receiveShadow
+      userData={{ stationId: "github" }}
+    />
+  );
+}

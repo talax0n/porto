@@ -19,7 +19,7 @@ export interface Station {
 }
 
 /** Plinth edge-to-centre distance plus room for the marble. */
-const REACH = 2.35;
+const REACH = 2.2;
 
 function make(
   id: StationId,

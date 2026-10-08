@@ -28,7 +28,14 @@ export function useHQ() {
     }
   }, []);
 
+  const lit = useRef(0);
   useEffect(() => {
+    // celebrate only when the 7th station is lit live, never when a finished run is restored
+    if (lit.current === STATIONS.length - 1 && state.visited.size === STATIONS.length) {
+      ctl.celebrate.t = 0;
+      ctl.celebrate.active = true;
+    }
+    lit.current = state.visited.size;
     if (state.visited.size) localStorage.setItem(STORAGE_KEY, JSON.stringify([...state.visited]));
   }, [state.visited]);
 
@@ -68,15 +75,6 @@ export function useHQ() {
     if (s.mode === "exploring" && s.near) dispatch({ type: "open", id: s.near });
   }, []);
 
-  const activate = useCallback(
-    (id: StationId) => {
-      const s = stateRef.current;
-      if (s.mode === "exploring" && s.near === id) dispatch({ type: "open", id });
-      else travel(id);
-    },
-    [travel],
-  );
-
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -108,5 +106,5 @@ export function useHQ() {
 
   const close = useCallback(() => dispatch({ type: "close" }), []);
 
-  return { state, travel, activate, close };
+  return { state, travel, close };
 }

@@ -49,6 +49,8 @@ export interface Controls {
   zoomMul: number;
   frozen: boolean;
   focus: StationId | null;
+  /** 7/7 celebration clock, advanced by the scene */
+  celebrate: { active: boolean; t: number };
 }
 
 export const ctl: Controls = {
@@ -59,6 +61,7 @@ export const ctl: Controls = {
   zoomMul: 1,
   frozen: false,
   focus: null,
+  celebrate: { active: false, t: 0 },
 };
 
 export function setTarget(x: number, z: number, station: StationId | null) {

@@ -33,8 +33,10 @@ export function CameraRig() {
   useFrame(({ size, camera }, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
     const k = 1 - Math.exp(-dt * 4);
-    const baseZoom = clamp(Math.min(size.width / 30, size.height / 20), 10, 60);
     const narrow = size.width < 768;
+    // the whole archipelago fits on a phone; wider screens frame it closer and follow the marble
+    const fit = narrow ? 30 : 22;
+    const baseZoom = clamp(Math.min(size.width / fit, size.height / (fit * 0.68)), 10, 70);
 
     let zoom = baseZoom * ctl.zoomMul;
     if (ctl.focus) {
@@ -50,8 +52,8 @@ export function CameraRig() {
     } else {
       desired.set(ctl.player.x, 0, ctl.player.z);
     }
-    desired.x = clamp(desired.x, -WORLD.halfX, WORLD.halfX + 4);
-    desired.z = clamp(desired.z, -WORLD.halfZ - 2, WORLD.halfZ + 2);
+    desired.x = clamp(desired.x, -8, 8);
+    desired.z = clamp(desired.z, -6, 6);
 
     aim.lerp(desired, k);
     camera.position.copy(aim).add(OFFSET);
