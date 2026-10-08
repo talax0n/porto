@@ -11,7 +11,7 @@ const RIGHT = new Vector3(1, 0, -1).normalize();
 const DOWN = new Vector3(1, 0, 1).normalize();
 const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 1.6;
-const INSPECT_ZOOM = 1.55;
+const INSPECT_ZOOM = 1.35;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -35,7 +35,7 @@ export function CameraRig() {
     const k = 1 - Math.exp(-dt * 4);
     const narrow = size.width < 768;
     // the whole archipelago fits on a phone; wider screens frame it closer and follow the marble
-    const fit = narrow ? 30 : 22;
+    const fit = narrow ? 27 : 22;
     const baseZoom = clamp(Math.min(size.width / fit, size.height / (fit * 0.68)), 10, 70);
 
     let zoom = baseZoom * ctl.zoomMul;
@@ -44,16 +44,14 @@ export function CameraRig() {
       zoom = Math.max(zoom, baseZoom) * INSPECT_ZOOM;
       desired.set(sx, 0, sz);
       // keep the station visible beside the HUD panel
-      if (narrow) desired.addScaledVector(DOWN, (size.height * 0.2) / (zoom * GROUND_FORESHORTEN));
+      if (narrow) desired.addScaledVector(DOWN, (size.height * 0.24) / (zoom * GROUND_FORESHORTEN));
       else desired.addScaledVector(RIGHT, Math.min(260, size.width * 0.17) / zoom);
     } else if (narrow) {
-      // the whole room fits a phone screen only when framed from its center
+      // the whole archipelago fits a phone screen only when framed from its center
       desired.set(0, 0, 0);
     } else {
-      desired.set(ctl.player.x, 0, ctl.player.z);
+      desired.set(clamp(ctl.player.x, -8, 8), 0, clamp(ctl.player.z, -6, 6));
     }
-    desired.x = clamp(desired.x, -8, 8);
-    desired.z = clamp(desired.z, -6, 6);
 
     aim.lerp(desired, k);
     camera.position.copy(aim).add(OFFSET);

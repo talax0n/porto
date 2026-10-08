@@ -29,15 +29,21 @@ export function useHQ() {
   }, []);
 
   const lit = useRef(0);
+  const owed = useRef(false);
   useEffect(() => {
-    // celebrate only when the 7th station is lit live, never when a finished run is restored
-    if (lit.current === STATIONS.length - 1 && state.visited.size === STATIONS.length) {
-      ctl.celebrate.t = 0;
-      ctl.celebrate.active = true;
-    }
+    // owed only when the 7th station is lit live, never when a finished run is restored
+    if (lit.current === STATIONS.length - 1 && state.visited.size === STATIONS.length) owed.current = true;
     lit.current = state.visited.size;
     if (state.visited.size) localStorage.setItem(STORAGE_KEY, JSON.stringify([...state.visited]));
   }, [state.visited]);
+
+  useEffect(() => {
+    if (owed.current && state.mode === "exploring") {
+      owed.current = false;
+      ctl.celebrate.t = 0;
+      ctl.celebrate.active = true;
+    }
+  }, [state.mode]);
 
   const travel = useCallback(
     (id: StationId) => {

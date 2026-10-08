@@ -184,7 +184,7 @@ function Tag({ station, y, near, lit }: { station: Station; y: number; near: boo
       style={{ pointerEvents: "none" }}
     >
       <div
-        className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border bg-white px-2.5 py-1 text-[11px] font-medium text-black transition-[transform,border-color] ${
+        className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border bg-white px-2.5 py-1 text-[11px] max-sm:px-1.5 max-sm:py-0.5 max-sm:text-[9px] font-medium text-black transition-[transform,border-color] ${
           near ? "scale-110 border-hq-accent" : "border-hq-line"
         }`}
       >
