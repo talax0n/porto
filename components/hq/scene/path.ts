@@ -1,15 +1,15 @@
-import { ROOM, isBlocked } from "./layout";
+import { WORLD, isBlocked } from "./layout";
 
 const CELL = 0.25;
-const W = Math.round((ROOM.halfX * 2) / CELL);
-const H = Math.round((ROOM.halfZ * 2) / CELL);
+const W = Math.round((WORLD.halfX * 2) / CELL);
+const H = Math.round((WORLD.halfZ * 2) / CELL);
 
 type Pt = [number, number];
 
-const cellCenter = (i: number, j: number): Pt => [-ROOM.halfX + (i + 0.5) * CELL, -ROOM.halfZ + (j + 0.5) * CELL];
+const cellCenter = (i: number, j: number): Pt => [-WORLD.halfX + (i + 0.5) * CELL, -WORLD.halfZ + (j + 0.5) * CELL];
 const toCell = (x: number, z: number): Pt => [
-  Math.min(W - 1, Math.max(0, Math.floor((x + ROOM.halfX) / CELL))),
-  Math.min(H - 1, Math.max(0, Math.floor((z + ROOM.halfZ) / CELL))),
+  Math.min(W - 1, Math.max(0, Math.floor((x + WORLD.halfX) / CELL))),
+  Math.min(H - 1, Math.max(0, Math.floor((z + WORLD.halfZ) / CELL))),
 ];
 
 function clear(a: Pt, b: Pt): boolean {

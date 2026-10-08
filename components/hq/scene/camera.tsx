@@ -3,7 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Raycaster, Plane, Vector2, Vector3, type Object3D } from "three";
 import { STATION_BY_ID, type StationId } from "@/data/stations";
 import { ctl, setTarget } from "../game";
-import { ROOM } from "./layout";
+import { WORLD } from "./layout";
 
 const OFFSET = new Vector3(14, 14, 14);
 const GROUND_FORESHORTEN = Math.sqrt(1 / 3);
@@ -50,8 +50,8 @@ export function CameraRig() {
     } else {
       desired.set(ctl.player.x, 0, ctl.player.z);
     }
-    desired.x = clamp(desired.x, -ROOM.halfX, ROOM.halfX + 4);
-    desired.z = clamp(desired.z, -ROOM.halfZ - 2, ROOM.halfZ + 2);
+    desired.x = clamp(desired.x, -WORLD.halfX, WORLD.halfX + 4);
+    desired.z = clamp(desired.z, -WORLD.halfZ - 2, WORLD.halfZ + 2);
 
     aim.lerp(desired, k);
     camera.position.copy(aim).add(OFFSET);
@@ -100,8 +100,8 @@ export function ClickToMove({ onTravel }: { onTravel: (id: StationId) => void })
       if (id) return onTravel(id);
       if (ray.ray.intersectPlane(ground, hit)) {
         setTarget(
-          clamp(hit.x, -ROOM.halfX + 0.5, ROOM.halfX - 0.5),
-          clamp(hit.z, -ROOM.halfZ + 0.5, ROOM.halfZ - 0.5),
+          clamp(hit.x, -WORLD.halfX + 0.5, WORLD.halfX - 0.5),
+          clamp(hit.z, -WORLD.halfZ + 0.5, WORLD.halfZ - 0.5),
           null,
         );
       }

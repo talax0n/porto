@@ -3,34 +3,42 @@ import { motion } from "framer-motion";
 import { STATION_BY_ID, type StationId } from "@/data/stations";
 import { PANELS } from "../panels";
 
+const OFFSET = { opacity: 0, x: 48, y: 0 };
+const OFFSET_MOBILE = { opacity: 0, x: 0, y: 64 };
+
 export function Panel({ id, onClose }: { id: StationId; onClose: () => void }) {
   const station = STATION_BY_ID[id];
   const Content = PANELS[id];
+  const mobile = typeof window !== "undefined" && window.innerWidth < 640;
+  const off = mobile ? OFFSET_MOBILE : OFFSET;
   return (
     <motion.aside
       role="dialog"
       aria-label={station.label}
-      initial={{ opacity: 0, x: 48 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 48 }}
-      transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      className="absolute z-30 flex flex-col overflow-hidden rounded-lg border border-hq-line bg-hq-panel/95 shadow-2xl backdrop-blur-md max-sm:inset-x-2 max-sm:bottom-2 max-sm:h-[62dvh] sm:right-6 sm:top-28 sm:max-h-[calc(100dvh-8rem)] sm:w-[min(460px,42vw)]"
-      style={{ borderTop: `3px solid ${station.accent}` }}
+      initial={off}
+      animate={{ opacity: 1, x: 0, y: 0 }}
+      exit={off}
+      transition={{ type: "spring", stiffness: 320, damping: 34 }}
+      className="absolute z-30 flex flex-col overflow-hidden rounded-3xl border border-hq-line bg-white text-hq-ink shadow-[0_24px_60px_-24px_rgba(0,0,0,0.18)] max-sm:inset-x-2 max-sm:bottom-2 max-sm:h-[64dvh] sm:right-6 sm:top-6 sm:max-h-[calc(100dvh-7.5rem)] sm:w-[min(460px,42vw)]"
     >
-      <header className="flex items-center gap-2 border-b border-hq-line px-4 py-3 font-mono">
-        <span className="size-2.5 rounded-full" style={{ background: station.accent }} />
-        <h2 className="flex-1 text-xs tracking-[0.2em] text-hq-amber">{station.label.toUpperCase()}</h2>
-        <kbd className="rounded border border-hq-line px-1.5 py-0.5 text-[10px] text-hq-cream/70 max-sm:hidden">Esc</kbd>
+      <header className="flex items-start gap-3 px-6 pt-5 max-sm:px-5 max-sm:pt-4">
+        <div className="flex-1">
+          <p className="font-sans text-[11px] tracking-[0.18em] text-hq-mute">0{station.hotkey}</p>
+          <h2 className="font-display text-4xl font-extrabold leading-none tracking-tight max-sm:text-3xl">
+            {station.label}
+          </h2>
+        </div>
+        <kbd className="mt-1 rounded-md border border-hq-line px-1.5 py-0.5 text-[10px] text-hq-mute max-sm:hidden">Esc</kbd>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close panel"
-          className="rounded p-1 text-hq-cream/80 hover:bg-hq-line"
+          className="rounded-full border border-hq-line p-1.5 text-hq-ink transition-colors hover:bg-hq-bg"
         >
           <X className="size-4" />
         </button>
       </header>
-      <div className="min-h-0 flex-1 overflow-hidden p-4">
+      <div className="min-h-0 flex-1 overflow-hidden px-6 pb-6 pt-4 max-sm:px-5 max-sm:pb-4">
         <Content />
       </div>
     </motion.aside>

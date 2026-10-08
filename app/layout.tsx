@@ -18,7 +18,7 @@ const syne = Syne({
 export const metadata: Metadata = {
   title: "Theo — Portfolio",
   description:
-    "Walk around Theo's isometric headquarters to explore projects, experience, skills and more.",
+    "Roll around Theo's clay archipelago to explore projects, experience, skills and more.",
 };
 
 export const viewport = {

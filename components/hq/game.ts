@@ -52,7 +52,7 @@ export interface Controls {
 }
 
 export const ctl: Controls = {
-  player: { x: -6.5, z: 6, heading: Math.PI / 2 },
+  player: { x: 0, z: 0, heading: Math.PI / 4 },
   target: null,
   path: [],
   keys: new Set(),

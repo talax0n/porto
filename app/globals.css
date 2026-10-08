@@ -5,11 +5,11 @@
 @theme inline {
   --font-sans: var(--font-inter);
   --font-display: var(--font-syne);
-  --color-hq-bg: #1a110b;
-  --color-hq-panel: #24170f;
-  --color-hq-line: #4a3320;
-  --color-hq-amber: #f2a93b;
-  --color-hq-cream: #f3e6d0;
+  --color-hq-bg: #f3f2ef;
+  --color-hq-ink: #111111;
+  --color-hq-mute: #6b6b6b;
+  --color-hq-line: #e5e5e5;
+  --color-hq-accent: #2b3cff;
 }
 
 html,
@@ -17,22 +17,18 @@ body {
   height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
-  background: #1a110b;
-  color: #f3e6d0;
+  background: #f3f2ef;
+  color: #111111;
+  color-scheme: light;
   font-family: var(--font-inter), sans-serif;
 }
 
 ::selection {
-  background: #f2a93b;
-  color: #1a110b;
+  background: #2b3cff;
+  color: #ffffff;
 }
 
-@keyframes hq-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
-  }
+:focus-visible {
+  outline: 2px solid #2b3cff;
+  outline-offset: 2px;
 }
