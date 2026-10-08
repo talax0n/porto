@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Inter, Syne } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider";
-import { SiteBackground } from "@/components/site-background";
 import "./globals.css";
 
 const inter = Inter({
@@ -20,7 +18,7 @@ const syne = Syne({
 export const metadata: Metadata = {
   title: "Theo — Portfolio",
   description:
-    "Portfolio website showcasing selected work and projects.",
+    "Walk around Theo's isometric headquarters to explore projects, experience, skills and more.",
 };
 
 export const viewport = {
@@ -36,12 +34,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${syne.variable}`}>
-      <body>
-        <ThemeProvider>
-          <SiteBackground />
-          {children}
-        </ThemeProvider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

@@ -1,337 +1,38 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 @source "../components";
 @source "../app";
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --color-destructive-foreground: var(--destructive-foreground);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-syne);
+  --color-hq-bg: #1a110b;
+  --color-hq-panel: #24170f;
+  --color-hq-line: #4a3320;
+  --color-hq-amber: #f2a93b;
+  --color-hq-cream: #f3e6d0;
 }
 
-/* ============================================
-   FONTS — loaded via next/font in layout.tsx
-   --font-syne and --font-inter are set on <html>
-============================================ */
-
-/* ============================================
-   THEME VARIABLES
-============================================ */
-html, body {
-  overscroll-behavior-y: none;
-}
-
-/* Responsive gutter — single source of truth for section padding */
-:root {
-  --pad: 44px;
-  --section-y: 140px;
-}
-@media (max-width: 900px) {
-  :root {
-    --pad: 20px;
-    --section-y: 84px;
-  }
-}
-
-:root {
-  --bg: #F0EDE5;
-  --bg2: #E8E5DD;
-  --fg: #0C0C0B;
-  --muted: #5B5A57;
-  --border: rgba(12, 12, 11, 0.1);
-  --border-hover: rgba(12, 12, 11, 0.38);
-  --accent: #FF3D00;
-  --accent2: #D93300;
-  --radius: 14px;
-  --transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-
-  /* shadcn theme variables */
-  --background: oklch(0 0 0);
-  --foreground: oklch(1 0 0);
-  --card: oklch(0.1 0 0 / 0.1);
-  --card-foreground: oklch(1 0 0);
-  --popover: oklch(0 0 0 / 0.8);
-  --popover-foreground: oklch(1 0 0);
-  --primary: oklch(1 0 0);
-  --primary-foreground: oklch(0 0 0);
-  --secondary: oklch(0.65 0.25 25);
-  --secondary-foreground: oklch(1 0 0);
-  --muted-foreground: oklch(0.7 0 0);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.6 0.25 15);
-  --destructive-foreground: oklch(1 0 0);
-  --input: oklch(1 0 0 / 0.1);
-  --ring: oklch(1 0 0 / 0.3);
-  --chart-1: oklch(0.65 0.25 25);
-  --chart-2: oklch(0.8 0.15 85);
-  --chart-3: oklch(0.7 0.2 140);
-  --chart-4: oklch(0.7 0.2 240);
-  --chart-5: oklch(0.6 0.25 300);
-  --sidebar: oklch(0 0 0 / 0.9);
-  --sidebar-foreground: oklch(1 0 0);
-  --sidebar-primary: oklch(0.65 0.25 25);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.65 0.25 25);
-  --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(1 0 0 / 0.2);
-  --sidebar-ring: oklch(1 0 0 / 0.3);
-  --font-geist-sans: "Geist Sans", sans-serif;
-  --font-geist-mono: "Geist Mono", monospace;
-}
-
-/* Contribution heatmap ramp — brand accent rather than GitHub green */
-:root {
-  --contrib-0: transparent;
-  --contrib-1: rgba(255, 61, 0, 0.22);
-  --contrib-2: rgba(255, 61, 0, 0.45);
-  --contrib-3: rgba(255, 61, 0, 0.7);
-  --contrib-4: #FF3D00;
-}
-
-[data-theme="dark"] {
-  --contrib-0: rgba(237, 237, 232, 0.07);
-  --contrib-1: rgba(255, 90, 42, 0.3);
-  --contrib-2: rgba(255, 90, 42, 0.55);
-  --contrib-3: rgba(255, 90, 42, 0.75);
-  --contrib-4: #FF5A2A;
-  --bg: #0C0C0B;
-  --bg2: #141413;
-  --fg: #EDEDE8;
-  --muted: #b5b5b0;
-  --border: rgba(237, 237, 232, 0.16);
-  --border-hover: rgba(237, 237, 232, 0.45);
-  --accent: #FF3D00;
-  --accent2: #FF7A5C;
-}
-
-.dark {
-  --background: oklch(0 0 0);
-  --foreground: oklch(1 0 0);
-  --card: oklch(0.1 0 0 / 0.1);
-  --card-foreground: oklch(1 0 0);
-  --popover: oklch(0 0 0 / 0.8);
-  --popover-foreground: oklch(1 0 0);
-  --primary: oklch(1 0 0);
-  --primary-foreground: oklch(0 0 0);
-  --secondary: oklch(0.65 0.25 25);
-  --secondary-foreground: oklch(1 0 0);
-  --muted-foreground: oklch(0.7 0 0);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.6 0.25 15);
-  --destructive-foreground: oklch(1 0 0);
-  --input: oklch(1 0 0 / 0.1);
-  --ring: oklch(1 0 0 / 0.3);
-  --chart-1: oklch(0.65 0.25 25);
-  --chart-2: oklch(0.8 0.15 85);
-  --chart-3: oklch(0.7 0.2 140);
-  --chart-4: oklch(0.7 0.2 240);
-  --chart-5: oklch(0.6 0.25 300);
-  --sidebar: oklch(0 0 0 / 0.9);
-  --sidebar-foreground: oklch(1 0 0);
-  --sidebar-primary: oklch(0.65 0.25 25);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.65 0.25 25);
-  --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(1 0 0 / 0.2);
-  --sidebar-ring: oklch(1 0 0 / 0.3);
-}
-
-/* ============================================
-   RESET & BASE
-============================================ */
-/* @layer base — unlayered CSS outranks Tailwind's layered utilities,
-   so an unlayered `* { padding: 0 }` would silently kill every p-* / m-* class */
-@layer base {
-  *, *::before, *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-html {
-  background: var(--bg);
-  transition: background var(--transition);
-  -webkit-text-size-adjust: 100%;
-}
-
+html,
 body {
-  font-family: var(--font-inter), system-ui, sans-serif;
-  /* transparent so the fixed GradientWaves canvas shows through */
-  background: transparent;
-  color: var(--fg);
-  overflow-x: hidden;
-  transition: color var(--transition);
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #1a110b;
+  color: #f3e6d0;
+  font-family: var(--font-inter), sans-serif;
 }
 
-/* Nothing may push the page sideways on small screens */
-img, svg, video, canvas {
-  max-width: 100%;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-img {
-  display: block;
-  max-width: 100%;
-}
-
-ul {
-  list-style: none;
-}
-
-/* ============================================
-   NOISE OVERLAY
-============================================ */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-  opacity: 0.028;
-  pointer-events: none;
-  z-index: 9997;
-}
-
-/* ============================================
-   MARQUEE
-============================================ */
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-.marquee-track {
-  display: inline-flex;
-  animation: marquee 28s linear infinite;
-}
-
-.marquee-wrap:hover .marquee-track {
-  animation-play-state: paused;
-}
-
-/* ============================================
-   NAV
-============================================ */
-.nav-link:hover { color: var(--fg) !important; }
-.theme-toggle-btn:hover {
-  background: var(--fg) !important;
-  color: var(--bg) !important;
-  border-color: var(--fg) !important;
-}
-@media (max-width: 900px) {
-  .nav-links-list { display: none !important; }
-  .desktop-nav { display: none !important; }
-}
-@media (min-width: 901px) {
-  .mobile-nav { display: none !important; }
-}
-
-/* Touch targets */
-@media (hover: none) {
-  a, button { -webkit-tap-highlight-color: transparent; }
-}
-
-/* ============================================
-   PILL — AVAILABLE STATE
-============================================ */
-.pill-available {
-  border-color: rgba(0, 130, 60, 0.35);
-  color: #006E2D;
-}
-[data-theme="dark"] .pill-available {
-  border-color: rgba(0, 220, 100, 0.28);
-  color: rgba(0, 220, 100, 0.85);
-}
-
-/* ============================================
-   PILL BLINK
-============================================ */
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-/* ============================================
-   SCROLL HINT LINE
-============================================ */
-@keyframes shline {
-  0% { top: -100%; }
-  100% { top: 100%; }
-}
-
-/* ============================================
-   STAGGERED MENU — theme bridge
-   !important: the component ships its own <style> tag,
-   which lands after this sheet in document order.
-============================================ */
-.sm-scope .staggered-menu-panel {
-  background: var(--bg2) !important;
-  padding: 7em var(--pad) calc(2em + env(safe-area-inset-bottom)) !important;
-}
-.sm-scope .sm-panel-item { color: var(--fg) !important; }
-.sm-scope .sm-panel-item:hover { color: var(--accent) !important; }
-.sm-scope .sm-socials-link { color: var(--muted) !important; }
-.sm-scope .sm-socials-link:hover { color: var(--accent) !important; }
-.sm-scope .sm-panel-item {
-  font-size: clamp(2.1rem, 9.5vw, 3.6rem) !important;
-  font-family: var(--font-syne), sans-serif;
-}
-.sm-scope .sm-socials-title { color: var(--accent) !important; }
-.sm-scope .sm-logo-text,
-.sm-scope .sm-toggle,
-.sm-scope .staggered-menu-wrapper[data-open] .sm-toggle { color: var(--fg) !important; }
-.sm-scope .staggered-menu-header { padding: 20px var(--pad) !important; }
-/* upstream sizes the item to its text and parks the counter at right:3.2em,
-   so long labels ("Experience") run straight through the number. Full-width
-   items put every counter in one aligned column at the panel edge instead. */
-.sm-scope .sm-panel-item {
-  display: block !important;
-  width: 100% !important;
-  padding-right: 0 !important;
-}
-.sm-scope .sm-panel-list[data-numbering] .sm-panel-item::after {
-  right: 0 !important;
-  top: 0.15em !important;
-  font-size: 13px !important;
-}
-
-/* ============================================
-   HERO TEXT LEGIBILITY ON SHADER BG
-============================================ */
-[data-theme="dark"] #hero {
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
-}
-[data-theme="dark"] #hero .pill-available,
-[data-theme="dark"] #hero [style*="color: var(--muted)"] {
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
-}
-
-/* ============================================
-   SELECTION
-============================================ */
 ::selection {
-  background: var(--accent);
-  color: #fff;
+  background: #f2a93b;
+  color: #1a110b;
 }
-::view-transition-old(root), ::view-transition-new(root) {
-    animation: none;
-    mix-blend-mode: normal;
-}
-/* ============================================
-   CONTACT — copy button always reachable on touch
-============================================ */
-@media (hover: none) {
-  .copy-btn { opacity: 1 !important; }
+
+@keyframes hq-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
