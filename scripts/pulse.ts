@@ -4,6 +4,7 @@
  * is stored, logged or sent. Run: npm run pulse
  */
 import { closeSync, openSync, readSync, readdirSync, statSync } from "node:fs";
+import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { type Agent, MAX_AGENTS, type Provider, type Pulse, kindOf } from "../data/pulse.ts";
@@ -140,9 +141,10 @@ function scan(): Pulse {
 let sent = "";
 let sentAt = 0;
 let down = false;
+let latest = "{}";
 
 async function tick() {
-  const body = JSON.stringify(scan());
+  const body = (latest = JSON.stringify(scan()));
   const now = Date.now();
   if (now - sentAt < DEBOUNCE_MS || (body === sent && now - sentAt < HEARTBEAT_MS)) return;
   sentAt = now;
@@ -166,3 +168,11 @@ async function tick() {
 
 await tick();
 setInterval(tick, SCAN_MS);
+
+// a listening port is what makes the watcher show up in port-based tools like Portside
+createServer((_, res) => res.setHeader("content-type", "application/json").end(`{"site":"${down ? "down" : "up"}","pulse":${latest}}`)).listen(
+  Number(process.env.PULSE_PORT ?? 4317),
+  "127.0.0.1",
+);
+// launchd only restarts on a failed exit, so a Stop from Portside (SIGTERM) stays stopped
+process.on("SIGTERM", () => process.exit(0));
