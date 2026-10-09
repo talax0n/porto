@@ -56,6 +56,7 @@ const VISIT: Record<StationId, string> = {
   awards: "Visit the Awards podium",
   github: "Count the GitHub cubes",
   contact: "Stop by the Contact postbox",
+  updates: "Read the Updates board",
 };
 
 export function questLabel(q: Quest): string {

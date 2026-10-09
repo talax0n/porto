@@ -7,6 +7,7 @@ import { ExperiencePanel } from "./experience";
 import { GithubPanel } from "./github";
 import { ProjectsPanel } from "./projects";
 import { SkillsPanel } from "./skills";
+import { UpdatesPanel } from "./updates";
 
 export const PANELS: Record<StationId, ComponentType> = {
   about: AboutPanel,
@@ -16,4 +17,5 @@ export const PANELS: Record<StationId, ComponentType> = {
   awards: AwardsPanel,
   github: GithubPanel,
   contact: ContactPanel,
+  updates: UpdatesPanel,
 };

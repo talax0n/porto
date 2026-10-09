@@ -1,4 +1,5 @@
 import { AWARDS } from "./awards";
+import { CHANGELOG } from "./changelog";
 import { PROJECTS } from "./projects";
 
 export type StationId =
@@ -8,7 +9,8 @@ export type StationId =
   | "skills"
   | "awards"
   | "github"
-  | "contact";
+  | "contact"
+  | "updates";
 
 export interface Station {
   id: StationId;
@@ -29,6 +31,7 @@ export const STATIONS: readonly Station[] = [
   { id: "awards", label: "Awards", hotkey: "5", at: [98, 335], line: `${AWARDS.length} awards on the podium. Go on, have a look.` },
   { id: "github", label: "GitHub", hotkey: "6", at: [102, 65], line: "Every cube is a day of commits. It's getting tall." },
   { id: "contact", label: "Contact", hotkey: "7", at: [98, 155], line: "Want to build something together? Leave Theo a letter." },
+  { id: "updates", label: "Updates", hotkey: "8", at: [100, 245], line: `Fresh off the press: v${CHANGELOG[0].version}. Read the board.` },
 ];
 
 export const STATION_BY_ID = Object.fromEntries(

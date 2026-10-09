@@ -8,6 +8,16 @@ export interface Release {
 /** newest first */
 export const CHANGELOG: Release[] = [
   {
+    version: "1.3.0",
+    date: "2026-10-10",
+    title: "Company and a board",
+    notes: [
+      "Visitors now share the planet: you can see each other walk around and chat.",
+      "Agents gather in one HQ on the Projects plinth with desks, a gym, and a nap corner.",
+      "This Updates board, so you can see what changed.",
+    ],
+  },
+  {
     version: "1.2.0",
     date: "2026-10-10",
     title: "Day and night",

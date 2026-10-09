@@ -58,7 +58,7 @@ function loadStreak(): Streak {
   return { count: v.count, last: v.last };
 }
 
-const STATIONS_DONE = "All 7 lit. Thanks for looking around!";
+const STATIONS_DONE = "All 8 lit. Thanks for looking around!";
 
 export function useHQ() {
   const [state, dispatch] = useReducer(gameReducer, initialState);

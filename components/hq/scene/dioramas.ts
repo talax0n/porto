@@ -23,6 +23,7 @@ export const IDENTITY: Record<StationId, Identity> = {
   awards: { wall: "#a9cdee", top: "#f2c14e" },
   github: { wall: "#f4a99a", top: "#c9624f" },
   contact: { wall: "#bcd3a8", top: "#e9776a" },
+  updates: { wall: "#f1d3a0", top: "#d9534f" },
 };
 
 /** Plinth edge per station; projects is the agents' HQ, wide enough for an office, a gym and a nap corner. */
@@ -34,6 +35,7 @@ export const PLINTH_SIZE: Record<StationId, number> = {
   awards: 3.2,
   github: 3.2,
   contact: 3.2,
+  updates: 3.2,
 };
 export const PLINTH_HEIGHT = 0.4;
 /** The plinth runs this far below the ground so its corners stay buried where the planet curves away, even the HQ's. */
@@ -522,6 +524,31 @@ function contact({ top }: Identity): Part[] {
   ];
 }
 
+function updates({ top }: Identity): Part[] {
+  const notes: [number, number, number, number, string, string][] = [
+    [-0.78, 1.42, -0.12, 0.2, "#fbfaf7", "#f29a83"],
+    [-0.15, 1.52, 0.08, 0.34, "#fff1a8", "#8cc6e6"],
+    [0.55, 1.4, -0.06, 0.25, "#cfe8f6", "#f29a83"],
+    [-0.55, 1.04, 0.1, 0.3, "#fbd5d0", "#8cc6e6"],
+    [0.15, 1.0, -0.1, 0.45, "#fbfaf7", "#f2c14e"],
+    [0.82, 0.98, 0.08, 0.2, "#d9ecc4", "#f29a83"],
+  ];
+  return [
+    part(box(0.14, 2.1, 0.14, 0.04), [-1.15, 1.05, -0.7], { tone: woodDark }),
+    part(box(0.14, 2.1, 0.14, 0.04), [1.15, 1.05, -0.7], { tone: woodDark }),
+    part(box(2.2, 1.3, 0.1, 0.04), [0, 1.25, -0.7], { tone: wood }),
+    part(box(2.04, 1.14, 0.04, 0.02), [0, 1.25, -0.63], { tone: "#d9b98b" }),
+    part(box(2.5, 0.1, 0.38, 0.04), [0, 2.1, -0.7], { rot: [0.25, 0, 0], tone: top }),
+    ...notes.flatMap(([x, y, tilt, w, paper, pin]) => [
+      part(box(w + 0.18, 0.26, 0.015, 0.008), [x, y, -0.6], { rot: [0, 0, tilt], tone: paper }),
+      part(ball(0.035), [x, y + 0.1, -0.58], { tone: pin }),
+    ]),
+    part(box(0.5, 0.2, 0.04, 0.02), [0.82, 1.74, -0.58], { rot: [0, 0, -0.08], tone: top }),
+    part(box(0.34, 0.08, 0.02, 0.01), [0.82, 1.74, -0.55], { rot: [0, 0, -0.08], tone: white }),
+    part(box(0.7, 0.08, 0.45, 0.04), [-0.2, 0.04, 0.1], { tone: light }),
+  ];
+}
+
 const BUILDERS: Record<StationId, (c: Identity) => Part[]> = {
   about,
   projects,
@@ -530,6 +557,7 @@ const BUILDERS: Record<StationId, (c: Identity) => Part[]> = {
   awards,
   github,
   contact,
+  updates,
 };
 
 export function buildStation(id: StationId): BufferGeometry {

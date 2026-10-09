@@ -38,7 +38,7 @@ export function Panel({ id, onClose }: { id: StationId; onClose: () => void }) {
           <X className="size-4" />
         </button>
       </header>
-      <div className="min-h-0 flex-1 overflow-hidden px-6 pb-6 pt-4 max-sm:px-5 max-sm:pb-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain mt-4 px-6 pb-6 max-sm:px-5 max-sm:pb-4">
         <Content />
       </div>
     </motion.aside>

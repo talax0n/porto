@@ -71,7 +71,7 @@ const HINTS: [string, string][] = [
   ["Click", "go"],
   ["Drag", "look"],
   ["E", "open"],
-  ["1–7", "jump"],
+  ["1–8", "jump"],
   ["M", "map"],
   ["Esc", "close"],
 ];
