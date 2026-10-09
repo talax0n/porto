@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
-import type { Group } from "three";
+import { type Group, Vector3 } from "three";
 import { type Provider, say } from "@/data/pulse";
 import { ctl } from "../game";
 import { usePulse } from "../use-pulse";
@@ -15,6 +15,11 @@ const LOGO: Record<Provider, { name: string; color: string; d: string }> = {
 const HEAD = R + 1.1;
 /** bubbles only show for villagers within this walking distance of the player */
 const NEAR = 3;
+/** px between stacked bubbles */
+const GAP = 6;
+const at = new Vector3();
+/** screen boxes of this frame's visible bubbles, centre x/y, reused */
+const boxes: { el: HTMLDivElement; x: number; y: number; w: number; h: number }[] = [];
 
 function Logo({ provider }: { provider: Provider }) {
   const { name, color, d } = LOGO[provider];
@@ -53,7 +58,7 @@ export function Agents() {
   const bubbles = useRef<(HTMLDivElement | null)[]>([]);
   const lines = acts.map(lineOf);
 
-  useFrame(({ camera, clock }) => {
+  useFrame(({ camera, clock, size }) => {
     if (seen.current !== ctl.pulse) {
       seen.current = ctl.pulse;
       reconcile(ctl.pulse, ctl.villagers);
@@ -63,13 +68,35 @@ export function Agents() {
       rev.current = town.rev;
       setActs([...town.acts]);
     }
+    boxes.length = 0;
     ctl.villagers.forEach((v, i) => {
       const head = heads.current[i];
       const bubble = bubbles.current[i];
       if (!head || !bubble) return;
       head.position.copy(v.n).multiplyScalar(HEAD + v.lift + v.alt);
       // Html ignores group.visible and would paint through the planet, so fade the DOM itself
-      bubble.style.opacity = v.n.dot(camera.position) > 0 && arc(v.n, ctl.player.n) < NEAR ? "1" : "0";
+      const shown = v.n.dot(camera.position) > 0 && arc(v.n, ctl.player.n) < NEAR;
+      bubble.style.opacity = shown ? "1" : "0";
+      if (!shown) return;
+      at.copy(head.position).project(camera);
+      const x = ((at.x + 1) / 2) * size.width;
+      const y = ((1 - at.y) / 2) * size.height;
+      boxes.push({ el: bubble, x, y, w: bubble.offsetWidth, h: bubble.offsetHeight });
+    });
+    // the bubble lowest on screen keeps its spot; any that would overlap one already placed climbs above it
+    boxes.sort((a, b) => b.y - a.y);
+    boxes.forEach((b, k) => {
+      const y0 = b.y;
+      for (let moved = true; moved; ) {
+        moved = false;
+        for (let j = 0; j < k; j++) {
+          const p = boxes[j];
+          if (Math.abs(b.x - p.x) * 2 >= b.w + p.w + GAP * 2 || Math.abs(b.y - p.y) * 2 >= b.h + p.h + GAP * 2) continue;
+          b.y = p.y - (b.h + p.h) / 2 - GAP;
+          moved = true;
+        }
+      }
+      b.el.style.transform = `translateY(${b.y - y0}px)`;
     });
   });
 
@@ -86,7 +113,7 @@ export function Agents() {
         <div
           ref={(d) => void (bubbles.current[i] = d)}
           style={{ opacity: 0 }}
-          className="hq-bubble relative w-max max-w-[220px] rounded-2xl border border-hq-line bg-white px-3 py-2 text-left text-[12px] leading-snug text-hq-ink shadow-[0_10px_30px_-12px_rgba(0,0,0,0.25)] transition-opacity duration-300 max-sm:max-w-[180px] max-sm:text-[11px]"
+          className="hq-bubble relative w-max max-w-[220px] rounded-2xl border border-hq-line bg-white px-3 py-2 text-left text-[12px] leading-snug text-hq-ink shadow-[0_10px_30px_-12px_rgba(0,0,0,0.25)] transition-[opacity,transform] duration-300 max-sm:max-w-[180px] max-sm:text-[11px]"
         >
           {line.title && <div className="font-medium">{line.title}</div>}
           <div className={line.title ? "flex items-center gap-1.5 text-[11px] text-hq-ink/60" : "flex items-center gap-1.5"}>

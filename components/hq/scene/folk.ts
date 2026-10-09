@@ -315,8 +315,10 @@ export function animate(f: Folk, dt: number, turnRate: number) {
   if ((f.amp > 0.4) !== walking && Math.abs(target - f.amp) > 0.3) f.sqv += walking ? 3 : -3.2;
   f.amp += (target - f.amp) * Math.min(1, dt * 8);
   f.phase += dt * (5 + 7 * f.amp) * (f.amp > 0.02 ? 1 : 0);
-  f.sqv += (-SQ_SPRING * f.sq - SQ_DAMP * f.sqv) * dt;
-  f.sq += f.sqv * dt;
+  // a stiff spring diverges on a long step (a hitch, or ?speed), so it never takes one
+  const k = Math.min(dt, 1 / 30);
+  f.sqv += (-SQ_SPRING * f.sq - SQ_DAMP * f.sqv) * k;
+  f.sq += f.sqv * k;
   f.lean += (turnRate - f.lean) * Math.min(1, dt * 6);
   if (f.hop !== Infinity) f.hop += dt;
 }
