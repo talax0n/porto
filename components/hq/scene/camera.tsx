@@ -16,8 +16,14 @@ import { RADIUS } from "./folk";
 import { DENY, MOVE } from "./ping";
 import { LANDMARKS, R, blocked, flatten } from "./planet";
 
-/** Tilt of the view away from straight down; the horizon curves in near the top of the screen. */
+/** Tilt of the view away from straight down; the horizon curves in near the top of the screen. Drag tilts it within the range. */
 const PITCH = 1.0;
+const MIN_PITCH = 0.55;
+const MAX_PITCH = 1.3;
+/** radians of orbit per pixel of drag */
+const DRAG = 0.006;
+let pitch = PITCH;
+const orbit = new Quaternion();
 const DIST = 18;
 const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 1.6;
@@ -69,8 +75,33 @@ export function CameraRig() {
     const onWheel = (e: WheelEvent) => {
       ctl.zoomMul = clamp(ctl.zoomMul * Math.exp(-e.deltaY * 0.0012), MIN_ZOOM, MAX_ZOOM);
     };
+    // drag orbits around the player; turning the carried north keeps WASD, the minimap and the ping in step
+    let last: { id: number; x: number; y: number } | null = null;
+    const onDown = (e: PointerEvent) => {
+      if (!last && !ctl.frozen) last = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    };
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerId !== last?.id || ctl.frozen) return;
+      orbit.setFromAxisAngle(ctl.player.n, (e.clientX - last.x) * DRAG);
+      flatten(ctl.north.applyQuaternion(orbit), ctl.player.n);
+      pitch = clamp(pitch + (e.clientY - last.y) * DRAG * 0.5, MIN_PITCH, MAX_PITCH);
+      last = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    };
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerId === last?.id) last = null;
+    };
     el.addEventListener("wheel", onWheel, { passive: true });
-    return () => el.removeEventListener("wheel", onWheel);
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+    };
   }, [gl]);
 
   useFrame(({ size, camera }, rawDt) => {
@@ -112,8 +143,8 @@ export function CameraRig() {
     lookAt.copy(aim).multiplyScalar(R + 0.5);
     camera.position
       .copy(lookAt)
-      .addScaledVector(aim, view.dist * Math.cos(PITCH))
-      .addScaledVector(north, -view.dist * Math.sin(PITCH));
+      .addScaledVector(aim, view.dist * Math.cos(pitch))
+      .addScaledVector(north, -view.dist * Math.sin(pitch));
     camera.up.copy(aim);
     if (c > 0) {
       const p = ctl.player.n;
