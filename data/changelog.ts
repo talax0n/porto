@@ -15,6 +15,7 @@ export const CHANGELOG: Release[] = [
       "Visitors now share the planet: you can see each other walk around and chat.",
       "Agents gather in one HQ on the Projects plinth with desks, a gym, and a nap corner.",
       "This Updates board, so you can see what changed.",
+      "Stations moved closer together, so nothing hides on the far side of the planet anymore.",
       "Street lamps light up at night, and you can click one to switch it on or off.",
     ],
   },
