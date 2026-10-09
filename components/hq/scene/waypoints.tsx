@@ -17,6 +17,7 @@ import { STATIONS, type Station, type StationId } from "@/data/stations";
 import { ctl } from "../game";
 import { ACCENT, CLAY, box, cone, cyl, merge, part } from "./clay";
 import { IDENTITY, buildStation } from "./dioramas";
+import { OVERLAY } from "./minimap";
 import { LANDMARKS, LANDMARK_SCALE, R, arc, frameAt, toward, walk } from "./planet";
 
 const N = STATIONS.length;
@@ -264,10 +265,11 @@ export function Waypoints({ near, inspecting, visited, target, show }: Waypoints
 
   return (
     <>
-      <instancedMesh ref={arrows} args={[arrowGeo, CLAY, N]} frustumCulled={false} />
-      <instancedMesh ref={checks} args={[checkGeo, CLAY, N]} frustumCulled={false} onUpdate={paintChecks} />
+      <instancedMesh ref={arrows} layers={OVERLAY} args={[arrowGeo, CLAY, N]} frustumCulled={false} />
+      <instancedMesh ref={checks} layers={OVERLAY} args={[checkGeo, CLAY, N]} frustumCulled={false} onUpdate={paintChecks} />
       <mesh
         ref={guide}
+        layers={OVERLAY}
         geometry={guideGeo}
         material={guideMat}
         matrixAutoUpdate={false}

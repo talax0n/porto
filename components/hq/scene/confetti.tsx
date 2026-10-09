@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { Color, Object3D, Vector3, type InstancedMesh } from "three";
 import { ctl } from "../game";
 import { ACCENT, CLAY, box, paint } from "./clay";
+import { OVERLAY } from "./minimap";
 import { R } from "./planet";
 
 const COUNT = 140;
@@ -78,5 +79,5 @@ export function Confetti() {
     m.instanceMatrix.needsUpdate = true;
   });
 
-  return <instancedMesh ref={mesh} args={[geo, CLAY, COUNT]} visible={false} frustumCulled={false} />;
+  return <instancedMesh ref={mesh} layers={OVERLAY} args={[geo, CLAY, COUNT]} visible={false} frustumCulled={false} />;
 }

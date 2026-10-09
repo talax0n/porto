@@ -14,6 +14,7 @@ import {
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { ctl } from "../game";
 import { ACCENT } from "./clay";
+import { OVERLAY } from "./minimap";
 import { flatten, frameAt } from "./planet";
 
 export const MOVE = ACCENT;
@@ -115,8 +116,8 @@ export function Ping() {
 
   return (
     <>
-      <mesh ref={arrows} geometry={chevrons} material={mat} matrixAutoUpdate={false} visible={false} renderOrder={3} frustumCulled={false} />
-      <mesh ref={ring} geometry={halo} material={mat} matrixAutoUpdate={false} visible={false} renderOrder={3} frustumCulled={false} />
+      <mesh ref={arrows} layers={OVERLAY} geometry={chevrons} material={mat} matrixAutoUpdate={false} visible={false} renderOrder={3} frustumCulled={false} />
+      <mesh ref={ring} layers={OVERLAY} geometry={halo} material={mat} matrixAutoUpdate={false} visible={false} renderOrder={3} frustumCulled={false} />
     </>
   );
 }

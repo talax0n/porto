@@ -11,6 +11,7 @@ import { Crowd } from "./crowd";
 import { Globe } from "./globe";
 import { GithubGrid } from "./github-grid";
 import { IntroBubble } from "./intro";
+import { MinimapView } from "./minimap";
 import { Ping } from "./ping";
 import { Waypoints } from "./waypoints";
 import { World } from "./world";
@@ -56,6 +57,7 @@ export default function Scene({ state, target, onTravel, onOpen, onNext, onSkip 
       <Confetti />
       <CameraRig />
       <ClickToMove onTravel={onTravel} />
+      <MinimapView />
     </Canvas>
   );
 }

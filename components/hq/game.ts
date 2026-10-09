@@ -159,6 +159,8 @@ export interface Controls {
    * `spin` is drag inertia in rad/s about screen-up and screen-right, `t` how far the camera has flown out.
    */
   globe: { open: boolean; t: number; dir: Vector3; up: Vector3; spin: Vector2 };
+  /** the minimap button; while it's mounted the scene paints the live planet under it */
+  minimap: HTMLElement | null;
 }
 
 const spawn = dirAt(8, 90);
@@ -183,6 +185,7 @@ export const ctl: Controls = {
   edges: [],
   ping: { n: new Vector3(), t: -Infinity, kind: "move", color: new Color() },
   globe: { open: false, t: 0, dir: new Vector3(), up: new Vector3(), spin: new Vector2() },
+  minimap: null,
 };
 
 /** `t` is performance.now() in seconds, the clock the marker's frame loop reads too. */

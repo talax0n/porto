@@ -4,6 +4,8 @@ import { STATIONS, type StationId } from "@/data/stations";
 /** Planet radius. Every position on it is a unit vector; surface distance is angle times R. */
 export const R = 9;
 export const NORTH_POLE = new Vector3(0, 1, 0);
+/** Half-width of the minimap's top-down view: a little past the planet, so its rim curves inside the circle. */
+export const MINIMAP_VIEW = R + 0.8;
 
 const DEG = Math.PI / 180;
 
@@ -149,25 +151,4 @@ export function resolve(n: Vector3, radius: number, ...riders: Vector3[]) {
     if (away.lengthSq() === 0) continue;
     walk(n, away, reach - d, ...riders);
   }
-}
-
-const tan = new Vector3();
-
-/**
- * Azimuthal equidistant projection around `center`: tangent `up` maps to +y and screen-right
- * (up × center, as the walk keys define it) to +x. Distance from the origin is the surface angle
- * in radians, so the whole planet fits in a disc of radius π.
- */
-export function mapXY(center: Vector3, up: Vector3, p: Vector3, out: { x: number; y: number }) {
-  const a = Math.acos(Math.min(1, Math.max(-1, center.dot(p))));
-  flatten(tan.copy(p), center);
-  if (tan.lengthSq() === 0) {
-    // the antipode has no bearing, so any point on the rim will do
-    out.x = 0;
-    out.y = a > 1 ? -a : 0;
-  } else {
-    out.x = tan.dot(side.crossVectors(up, center)) * a;
-    out.y = tan.dot(up) * a;
-  }
-  return out;
 }

@@ -4,34 +4,27 @@ import { Navigation2, X } from "lucide-react";
 import { Vector3 } from "three";
 import { STATIONS, type StationId } from "@/data/stations";
 import { cn } from "@/lib/utils";
-import { ACCENT, PAL } from "../scene/clay";
+import { ACCENT } from "../scene/clay";
 import { IDENTITY } from "../scene/dioramas";
-import { LANDMARKS, NORTH_POLE, R, mapXY } from "../scene/planet";
-import { PLAZA } from "../scene/props";
+import { LANDMARKS, MINIMAP_VIEW, R } from "../scene/planet";
 import { ctl } from "../game";
 
 interface Charted {
   visited: ReadonlySet<StationId>;
-  met: ReadonlySet<number>;
   /** today's quest destination, ringed on the map */
   target: StationId | null;
 }
 
-/** How much of the planet the corner radar shows, in radians from the player; the full map shows all of it. */
-const RADAR = 1.6;
-const FULL = Math.PI;
-/**
- * The full map rescales each equidistant radius to equal-area (2·sin(d/2)). The landmarks all sit
- * within ~1.4 rad of anyone, and a linear disc out to the antipode piles their labels in the middle.
- */
-const spread = (d: number, range: number) => (range === FULL ? Math.sin(d / 2) / Math.sin(FULL / 2) : d / range);
 const REDRAW_MS = 66;
 const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefers-reduced-motion: reduce)");
 const at = { x: 0, y: 0 };
 const right = new Vector3();
 
-/** Draws the planet as seen from above the player, camera-forward up, into a square canvas. */
-function draw(canvas: HTMLCanvasElement, range: number, { visited, met, target }: Charted, big: boolean) {
+/**
+ * The marks the live planet underneath can't show: today's target, visited checks and the
+ * player's heading. Projects straight down over the player, as the scene's minimap camera does.
+ */
+function draw(canvas: HTMLCanvasElement, { visited, target }: Charted) {
   const ctx = canvas.getContext("2d");
   const size = canvas.clientWidth;
   if (!ctx || !size) return;
@@ -41,130 +34,104 @@ function draw(canvas: HTMLCanvasElement, range: number, { visited, met, target }
   ctx.clearRect(0, 0, size, size);
 
   const c = size / 2;
-  const r = c - (big ? 6 : 3);
+  const k = (c * R) / MINIMAP_VIEW;
   const { n, heading } = ctl.player;
   const up = ctl.north;
-  /** projects a unit position; false when it lies past the rim, after pinning it there */
+  right.crossVectors(up, n);
+  /** false when p is on the far side, after pinning it to the rim */
   const place = (p: Vector3) => {
-    mapXY(n, up, p, at);
-    const d = Math.hypot(at.x, at.y);
-    const inside = d <= range;
-    const s = d > 0 ? (r * Math.min(1, spread(d, range))) / d : 0;
+    at.x = p.dot(right);
+    at.y = p.dot(up);
+    const front = p.dot(n) > 0;
+    const s = front ? k : k / (Math.hypot(at.x, at.y) || 1);
     at.x = c + at.x * s;
     at.y = c - at.y * s;
-    return inside;
+    return front;
   };
 
-  // the far side of the planet shades darker toward the rim, so the disc still reads as a ball
-  const ground = ctx.createRadialGradient(c, c, r * 0.3, c, c, r);
-  ground.addColorStop(0, "#d8edc9");
-  ground.addColorStop(1, range > 2 ? "#b9d9a3" : "#cfe7bd");
-  ctx.beginPath();
-  ctx.arc(c, c, r, 0, Math.PI * 2);
-  ctx.fillStyle = ground;
-  ctx.fill();
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = "#bcdca6";
-  ctx.stroke();
-  ctx.save();
-  ctx.clip();
-
-  if (place(NORTH_POLE)) {
-    ctx.beginPath();
-    ctx.arc(at.x, at.y, Math.max(3, r * spread(PLAZA / R, range)), 0, Math.PI * 2);
-    ctx.fillStyle = PAL.sand;
-    ctx.fill();
-  }
-
-  const dot = big ? 2.4 : 1.6;
-  for (const v of ctl.villagers) {
-    if (!place(v.n)) continue;
-    ctx.beginPath();
-    ctx.arc(at.x, at.y, dot, 0, Math.PI * 2);
-    ctx.fillStyle = met.has(v.id) ? ACCENT : "rgba(17,17,17,0.32)";
-    ctx.fill();
-  }
-  ctx.restore();
-
-  const pin = big ? 8 : 5;
+  ctx.lineCap = ctx.lineJoin = "round";
   const pulse = reduced?.matches ? 0 : Math.sin(performance.now() / 260) * 0.5 + 0.5;
   for (const s of STATIONS) {
-    const inside = place(LANDMARKS[s.id].n);
-    const pr = inside ? pin : pin * 0.75;
+    const front = place(LANDMARKS[s.id].n);
     if (s.id === target) {
       ctx.beginPath();
-      ctx.arc(at.x, at.y, pr + 3 + pulse * 2.5, 0, Math.PI * 2);
+      ctx.arc(at.x, at.y, 7 + pulse * 2.5, 0, Math.PI * 2);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = ACCENT;
+      ctx.stroke();
+      if (!front) {
+        ctx.beginPath();
+        ctx.arc(at.x, at.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = IDENTITY[s.id].top;
+        ctx.fill();
+      }
+    }
+    if (front && visited.has(s.id)) {
+      ctx.beginPath();
+      ctx.moveTo(at.x - 3, at.y);
+      ctx.lineTo(at.x - 0.75, at.y + 2.2);
+      ctx.lineTo(at.x + 3, at.y - 2);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
       ctx.lineWidth = 2;
       ctx.strokeStyle = ACCENT;
       ctx.stroke();
     }
-    ctx.beginPath();
-    ctx.arc(at.x, at.y, pr, 0, Math.PI * 2);
-    ctx.fillStyle = IDENTITY[s.id].top;
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = "#ffffff";
-    ctx.stroke();
-    if (visited.has(s.id)) {
-      const t = pr * 0.5;
-      ctx.beginPath();
-      ctx.moveTo(at.x - t, at.y);
-      ctx.lineTo(at.x - t * 0.25, at.y + t * 0.7);
-      ctx.lineTo(at.x + t, at.y - t * 0.6);
-      ctx.lineWidth = big ? 2 : 1.5;
-      ctx.lineCap = ctx.lineJoin = "round";
-      ctx.stroke();
-    }
   }
 
-  right.crossVectors(up, n);
   const a = Math.atan2(heading.dot(right), heading.dot(up));
-  const h = big ? 9 : 7;
   ctx.save();
   ctx.translate(c, c);
   ctx.rotate(a);
   ctx.beginPath();
-  ctx.moveTo(0, -h);
-  ctx.lineTo(h * 0.75, h * 0.7);
-  ctx.lineTo(0, h * 0.35);
-  ctx.lineTo(-h * 0.75, h * 0.7);
+  ctx.moveTo(0, -7);
+  ctx.lineTo(5.25, 4.9);
+  ctx.lineTo(0, 2.45);
+  ctx.lineTo(-5.25, 4.9);
   ctx.closePath();
   ctx.fillStyle = "#111111";
   ctx.fill();
   ctx.lineWidth = 1.5;
-  ctx.lineJoin = "round";
   ctx.strokeStyle = "#ffffff";
   ctx.stroke();
   ctx.restore();
 }
 
 /** Redraws at ~15Hz while mounted; the latest props are read through a ref so the loop never restarts. */
-function useChart(range: number, charted: Charted, big: boolean) {
+function useChart(charted: Charted) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const live = useRef(charted);
   useEffect(() => {
     live.current = charted;
   });
   useEffect(() => {
-    const tick = () => canvas.current && draw(canvas.current, range, live.current, big);
+    const tick = () => canvas.current && draw(canvas.current, live.current);
     tick();
     const id = setInterval(tick, REDRAW_MS);
     return () => clearInterval(id);
-  }, [range, big]);
+  }, []);
   return canvas;
 }
 
+/** A see-through button: the scene draws the live planet into the circle underneath it. */
 export function Minimap({ onOpen, ...charted }: Charted & { onOpen: () => void }) {
-  const canvas = useChart(RADAR, charted, false);
+  const canvas = useChart(charted);
   return (
     <button
       type="button"
+      ref={(el) => {
+        ctl.minimap = el;
+        return () => {
+          ctl.minimap = null;
+        };
+      }}
       onClick={onOpen}
       aria-label="Open map (M)"
       title="Map (M)"
-      className="group relative block size-[132px] rounded-full border border-hq-line bg-white/90 p-1 shadow-[0_10px_30px_-16px_rgba(0,0,0,0.25)] backdrop-blur transition-transform hover:scale-[1.03] max-sm:size-24"
+      className="relative block size-[132px] rounded-full border border-hq-line shadow-[0_10px_30px_-16px_rgba(0,0,0,0.25)] transition-colors hover:border-hq-accent max-sm:size-24"
     >
-      <canvas ref={canvas} className="size-full rounded-full" aria-hidden />
+      <canvas ref={canvas} className="absolute inset-0 size-full rounded-full" aria-hidden />
       <kbd className="absolute -top-1 -left-1 rounded border border-hq-line bg-white px-1 py-px font-sans text-[10px] text-hq-mute pointer-coarse:hidden">
         M
       </kbd>

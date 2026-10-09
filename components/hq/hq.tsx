@@ -73,7 +73,7 @@ export function HQ() {
       {state.mode === "exploring" && <EdgeArrows target={target} onTravel={travel} />}
       {state.mode === "exploring" && (
         <div data-hud className="absolute right-5 bottom-5 z-20 max-sm:right-3 max-sm:bottom-16">
-          <Minimap visited={state.visited} met={state.met} target={target} onOpen={toggleMap} />
+          <Minimap visited={state.visited} target={target} onOpen={toggleMap} />
         </div>
       )}
       <AnimatePresence>{map && <MapChrome onClose={close} />}</AnimatePresence>
