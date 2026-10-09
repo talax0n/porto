@@ -4,6 +4,7 @@ import { Html } from "@react-three/drei";
 import {
   Color,
   DoubleSide,
+  type Group,
   type InstancedMesh,
   Matrix4,
   type Mesh,
@@ -15,22 +16,26 @@ import {
 import { STATIONS, type Station, type StationId } from "@/data/stations";
 import { ctl } from "../game";
 import { ACCENT, CLAY, box, cone, cyl, merge, part } from "./clay";
-import { IDENTITY } from "./dioramas";
-import { LANDMARKS, R, arc, frameAt, mapXY, toward, walk } from "./planet";
+import { IDENTITY, buildStation } from "./dioramas";
+import { LANDMARKS, LANDMARK_SCALE, R, arc, frameAt, toward, walk } from "./planet";
 
 const N = STATIONS.length;
-const TAG_Y = 1.55;
-const ARROW_Y = 2.05;
-const CHECK_Y = 2;
+/** screen-up distances above a diorama's roofline */
+const ARROW_UP = 0.65;
+const CHECK_UP = 0.4;
+const TAG_UP = 0.28;
+/** world half-width of a roof: an arrow slides at most this far sideways to stay on screen over its building */
+const HALF = 1;
 /** edge arrows: at most today's target plus this many of the nearest unvisited places */
 const NEAREST = 3;
 const GUIDE_AHEAD = 1.1;
-const horizon = (d: number) => Math.acos(R / d);
-/** an arrow is gone once its landmark is this close (radians) to the limb, so none hangs in the sky */
-const LIMB_GONE = 0.3;
-const LIMB_FADE = 0.4;
-/** screen margin, in NDC, over which an arrow shrinks away before it touches the edge */
-const EDGE_FADE = 0.1;
+/** pixels the header, dock and screen edge keep for the HUD */
+const INSET = { top: 92, bottom: 80, side: 12 };
+/** NDC kept clear of the screen edge, then the band over which a marker hands over to its edge arrow */
+const MARGIN = 0.12;
+const FADE = 0.1;
+/** how far (world units) the camera ray to the roofline must clear the ground to count as fully in view */
+const LIMB_FADE = 0.35;
 const ease = (v: number) => Math.min(1, Math.max(0, v));
 const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -63,23 +68,33 @@ const m = new Matrix4();
 const s3 = new Vector3();
 const p3 = new Vector3();
 const fwd = new Vector3();
-const camDir = new Vector3();
+const anchor = new Vector3();
+const ray = new Vector3();
+const camX = new Vector3();
+const camY = new Vector3();
+const camZ = new Vector3();
 const ndc = new Vector3();
-const at = { x: 0, y: 0 };
+const vis = new Float32Array(N);
+const dirX = new Float32Array(N);
+const dirY = new Float32Array(N);
 const dist = new Float32Array(N);
 const ranked = new Float32Array(N);
 /** HUD boxes the edge arrows slide around, re-measured every few frames */
 let hud: DOMRect[] = [];
 let measured = 0;
 
-interface Mark {
-  /** 0 an arrow, 1 a check: eased so a fresh visit turns over instead of popping */
-  done: number;
-  /** offscreen and picked for an edge arrow this frame */
-  edge: boolean;
-}
+/** 0 an arrow, 1 a check: eased so a fresh visit turns over instead of popping */
+const done = new Float32Array(N);
 
-const marks: Mark[] = STATIONS.map(() => ({ done: 0, edge: false }));
+/**
+ * How far the camera ray to `a` clears the planet before reaching it: negative once the ground
+ * hides it. Measured at the ray's closest approach to the centre, or at `a` if that lies beyond.
+ */
+function clearance(cam: Vector3, a: Vector3) {
+  ray.subVectors(a, cam);
+  const t = ease(-cam.dot(ray) / ray.lengthSq());
+  return ray.multiplyScalar(t).add(cam).length() - R;
+}
 
 interface WaypointsProps {
   near: StationId | null;
@@ -100,7 +115,19 @@ export function Waypoints({ near, inspecting, visited, target, show }: Waypoints
   const checks = useRef<InstancedMesh>(null);
   const guide = useRef<Mesh>(null);
   const tags = useRef<(HTMLDivElement | null)[]>([]);
+  const tagGroups = useRef<(Group | null)[]>([]);
   const live = useRef({ near, inspecting, visited, target, show });
+  // rooflines; the GitHub plinth is nearly flat but its contribution bars stand up off it
+  const roofs = useMemo(
+    () =>
+      STATIONS.map((s) => {
+        const g = buildStation(s.id);
+        g.computeBoundingBox();
+        g.dispose();
+        return R + Math.max(0.9, g.boundingBox!.max.y * LANDMARK_SCALE);
+      }),
+    [],
+  );
 
   useEffect(() => {
     live.current = { near, inspecting, visited, target, show };
@@ -112,47 +139,76 @@ export function Waypoints({ near, inspecting, visited, target, show }: Waypoints
     const still = !!reduced?.matches;
     const t = clock.elapsedTime;
     const p = ctl.player.n;
-    camDir.copy(camera.position).normalize();
-    const limb = horizon(camera.position.length());
+    camera.updateMatrixWorld();
+    // camera +Y is screen-up for any point, so markers offset along it sit straight above their anchor
+    camera.matrixWorld.extractBasis(camX, camY, camZ);
     const a = arrows.current;
     const c = checks.current;
     const roaming = on && !ctl.frozen && ctl.intro === "ground";
+    // the HUD's top and bottom bands count as off screen; the arrow rises from its tip, so the bottom needs no margin
+    const top = 1 - (2 * INSET.top) / size.height - MARGIN;
+    const bottom = -1 + (2 * INSET.bottom) / size.height;
+    const side = 1 - (2 * INSET.side) / size.width - MARGIN;
 
     for (let i = 0; i < N; i++) {
       const id = STATIONS[i].id;
       const { n } = LANDMARKS[id];
-      const mk = marks[i];
       const quest = id === goal;
-      mk.done += ((lit.has(id) && !quest ? 1 : 0) - mk.done) * Math.min(1, dt * 6);
-      ndc.copy(n).multiplyScalar(R + TAG_Y).project(camera);
-      // the top and bottom bands belong to the HUD
-      const clear = n.dot(camDir) > 0.5 && ndc.y > -0.72 && ndc.y < 0.72 && Math.abs(ndc.x) < 0.92;
-      // the one visibility rule: the 3D marker's size, and the edge arrow shows exactly when it hits zero
-      ndc.copy(n).multiplyScalar(R + ARROW_Y).project(camera);
-      const vis =
-        ease((limb - LIMB_GONE - Math.acos(Math.min(1, n.dot(camDir)))) / LIMB_FADE) *
-        ease((0.95 - Math.abs(ndc.x)) / EDGE_FADE) *
-        ease((ndc.y + 0.85) / EDGE_FADE) *
-        ease((0.9 - ndc.y) / EDGE_FADE);
+      done[i] += ((lit.has(id) && !quest ? 1 : 0) - done[i]) * Math.min(1, dt * 6);
+      anchor.copy(n).multiplyScalar(roofs[i]);
+      const open = ease(clearance(camera.position, anchor) / LIMB_FADE);
+      // the arrow is what has to fit on screen, so test its tip rather than the roof
+      ndc.copy(anchor).addScaledVector(camY, ARROW_UP).project(camera);
+      const ahead = ndc.z < 1;
+      // a building cut by the side of the screen keeps its arrow over the part still showing
+      p3.copy(anchor).addScaledVector(camY, ARROW_UP).addScaledVector(camX, HALF).project(camera);
+      const halfW = p3.x - ndc.x;
+      const over = Math.abs(ndc.x) - side;
+      const slide = over > 0 && halfW > 1e-4 ? (-Math.sign(ndc.x) * Math.min(over, halfW) * HALF) / halfW : 0;
+      const inside = Math.min(side + Math.max(0, halfW) - Math.abs(ndc.x), top - ndc.y, ndc.y - bottom);
+      const v = (vis[i] = on && ahead ? open * ease(inside / FADE) : 0);
+      // edge arrows point from the screen centre at the anchor, or along the walk there once it's over the limb
+      let sx = ahead ? ndc.x : -ndc.x;
+      let sy = ahead ? ndc.y : -ndc.y;
+      if (open < 1) {
+        anchor.copy(p).multiplyScalar(R);
+        toward(p, n, fwd);
+        p3.copy(anchor).add(fwd).project(camera);
+        ndc.copy(anchor).project(camera);
+        const wl = Math.hypot(p3.x - ndc.x, p3.y - ndc.y) || 1;
+        const sl = Math.hypot(sx, sy) || 1;
+        sx = ((p3.x - ndc.x) / wl) * (1 - open) + (sx / sl) * open;
+        sy = ((p3.y - ndc.y) / wl) * (1 - open) + (sy / sl) * open;
+      }
+      dirX[i] = sx * size.width;
+      dirY[i] = -sy * size.height;
       // a keeper's speech bubble owns the screen while it's up
-      mk.edge = roaming && vis <= 0 && !talking;
-      dist[i] = mk.edge && !lit.has(id) && !quest ? arc(p, n) : Infinity;
+      dist[i] = roaming && v < 1 && !talking && !lit.has(id) && !quest ? arc(p, n) : Infinity;
 
+      const g = tagGroups.current[i];
       const el = tags.current[i];
-      if (el) el.style.opacity = on && clear && vis > 0 && (!focus || id === focus) ? "1" : "0";
+      if (g) g.position.copy(n).multiplyScalar(roofs[i]).addScaledVector(camY, TAG_UP).addScaledVector(camX, slide);
+      if (el) el.style.opacity = !focus || id === focus ? v.toFixed(2) : "0";
 
       if (!a || !c) continue;
-      toward(n, camera.position, fwd);
-      const bob = still ? 0 : Math.sin(t * 3 + i * 1.3) * 0.14 * (1 - mk.done);
+      const bob = still ? 0 : Math.sin(t * 3 + i * 1.3) * 0.14 * (1 - done[i]);
       const pulse = quest && !still ? 1 + Math.sin(t * 5) * 0.1 : 1;
-      const big = (quest ? 1.4 : 1) * pulse * (on ? vis : 0);
-      frameAt(n, fwd, m, ARROW_Y + bob + (quest ? 0.25 : 0), 1);
-      a.setMatrixAt(i, m.scale(s3.setScalar(big * (1 - mk.done) + 1e-4)));
+      const big = (quest ? 1.4 : 1) * pulse * v;
+      m.makeBasis(camX, camY, camZ).setPosition(
+        anchor
+          .copy(n)
+          .multiplyScalar(roofs[i])
+          .addScaledVector(camY, ARROW_UP + bob + (quest ? 0.15 : 0))
+          .addScaledVector(camX, slide),
+      );
+      a.setMatrixAt(i, m.scale(s3.setScalar(big * (1 - done[i]) + 1e-4)));
       // unvisited arrows breathe toward white, a soft glow without an emissive material
       const glow = still ? 0.1 : (Math.sin(t * 2.4 + i) * 0.5 + 0.5) * (quest ? 0.35 : 0.2);
-      a.setColorAt(i, tint.copy(identity[i]).lerp(white, Math.max(glow, 1 - vis)));
-      frameAt(n, fwd, m, CHECK_Y, 1);
-      c.setMatrixAt(i, m.scale(s3.setScalar((on ? 0.8 * vis : 0) * mk.done + 1e-4)));
+      a.setColorAt(i, tint.copy(identity[i]).lerp(white, Math.max(glow, 1 - v)));
+      m.makeBasis(camX, camY, camZ).setPosition(
+        anchor.copy(n).multiplyScalar(roofs[i]).addScaledVector(camY, CHECK_UP).addScaledVector(camX, slide),
+      );
+      c.setMatrixAt(i, m.scale(s3.setScalar(0.8 * v * done[i] + 1e-4)));
     }
     if (a && c) {
       a.instanceMatrix.needsUpdate = true;
@@ -166,19 +222,25 @@ export function Waypoints({ near, inspecting, visited, target, show }: Waypoints
     if (roaming && ++measured % 20 === 1) {
       hud = [...document.querySelectorAll("[data-hud]")].map((e) => e.getBoundingClientRect()).filter((r) => r.width);
     }
-    ndc.copy(p).multiplyScalar(R).project(camera);
-    const px = ((ndc.x + 1) / 2) * size.width;
-    const py = ((1 - ndc.y) / 2) * size.height;
     for (let i = 0; i < N; i++) {
       const el = ctl.edges[i];
       if (!el) continue;
       const id = STATIONS[i].id;
-      const showEdge = marks[i].edge && (id === goal || dist[i] <= cut);
+      const fade = 1 - vis[i];
+      const showEdge = roaming && !talking && fade > 0.02 && (id === goal || dist[i] <= cut);
       el.style.visibility = showEdge ? "visible" : "hidden";
       if (!showEdge) continue;
-      mapXY(p, ctl.north, LANDMARKS[id].n, at);
-      const bearing = Math.atan2(at.x, at.y);
-      const [x, y] = pinToEdge(px, py, Math.sin(bearing), -Math.cos(bearing), size.width, size.height, el);
+      el.style.opacity = fade.toFixed(2);
+      const bearing = Math.atan2(dirX[i], -dirY[i]);
+      const [x, y] = pinToEdge(
+        size.width / 2,
+        size.height / 2,
+        Math.sin(bearing),
+        -Math.cos(bearing),
+        size.width,
+        size.height,
+        el,
+      );
       el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
       const pointer = el.firstElementChild as HTMLElement | null;
       if (pointer) pointer.style.transform = `rotate(${bearing}rad)`;
@@ -202,18 +264,31 @@ export function Waypoints({ near, inspecting, visited, target, show }: Waypoints
     <>
       <instancedMesh ref={arrows} args={[arrowGeo, CLAY, N]} frustumCulled={false} />
       <instancedMesh ref={checks} args={[checkGeo, CLAY, N]} frustumCulled={false} onUpdate={paintChecks} />
-      <mesh ref={guide} geometry={guideGeo} material={guideMat} matrixAutoUpdate={false} visible={false} renderOrder={2} />
+      <mesh
+        ref={guide}
+        geometry={guideGeo}
+        material={guideMat}
+        matrixAutoUpdate={false}
+        visible={false}
+        renderOrder={2}
+      />
       {STATIONS.map((s, i) => (
-        <Tag
+        <group
           key={s.id}
-          station={s}
-          near={near === s.id}
-          lit={visited.has(s.id)}
-          quest={target === s.id}
-          bind={(el) => {
-            tags.current[i] = el;
+          ref={(g) => {
+            tagGroups.current[i] = g;
           }}
-        />
+        >
+          <Tag
+            station={s}
+            near={near === s.id}
+            lit={visited.has(s.id)}
+            quest={target === s.id}
+            bind={(el) => {
+              tags.current[i] = el;
+            }}
+          />
+        </group>
       ))}
     </>
   );
@@ -224,8 +299,6 @@ function paintChecks(mesh: InstancedMesh) {
   for (let i = 0; i < N; i++) mesh.setColorAt(i, accent);
   mesh.instanceColor!.needsUpdate = true;
 }
-
-const INSET = { top: 92, bottom: 80, side: 12 };
 
 /**
  * Where a ray from (x, y) along (dx, dy) leaves the inset screen; a spot under a HUD box slides
@@ -268,9 +341,8 @@ interface TagProps {
 }
 
 function Tag({ station, near, lit, quest, bind }: TagProps) {
-  const pos = useMemo(() => LANDMARKS[station.id].n.clone().multiplyScalar(R + TAG_Y), [station.id]);
   return (
-    <Html position={pos} center zIndexRange={[10, 0]} style={{ pointerEvents: "none" }}>
+    <Html center zIndexRange={[10, 0]} style={{ pointerEvents: "none" }}>
       <div
         ref={bind}
         style={{ opacity: 0 }}
