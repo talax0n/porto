@@ -15,7 +15,7 @@ import {
   Vector3,
 } from "three";
 import { STATION_BY_ID, type StationId } from "@/data/stations";
-import { DROP_IN, HOVER, ctl } from "../game";
+import { DROP_IN, HOVER, ctl, setGesture } from "../game";
 import { ACCENT, CLAY } from "./clay";
 import {
   HATS,
@@ -32,6 +32,7 @@ import {
   move,
   stepVillager,
 } from "./folk";
+import { blankPose, mixPose, onceOf, poseOf } from "./gesture";
 import { LANDMARKS, R, arc, flatten, frameAt, steer, toward } from "./planet";
 import { blobTexture } from "./props";
 
@@ -53,12 +54,19 @@ const puffGeo = new TorusGeometry(0.5, 0.11, 6, 28).rotateX(Math.PI / 2).scale(1
 
 const GRAVITY = 16;
 /** the little jump off the hover spot before gravity takes over */
-const LEAP = 2.6;
+const LEAP = 3.2;
+/** the crouch before that jump */
+const WIND = 0.2;
 const PUFF = 0.55;
 const STARTLE = 3.5;
 const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefers-reduced-motion: reduce)");
-/** the player's intro clocks: vertical speed, a free-running hover clock, wave and flail blends, puff age */
-const drop = { vy: 0, t: 0, wave: 0, flail: 0, puff: Infinity, last: ctl.intro };
+/** the player's intro clocks: vertical speed, a free-running hover clock, crouch, flail blend, puff age */
+const drop = { vy: 0, t: 0, wind: 0, flail: 0, puff: Infinity, last: ctl.intro };
+const BLEND = 0.25;
+/** the pose on screen, the one it blends from, and the gesture's own pose this frame */
+const shown = blankPose();
+const from = blankPose();
+const live = blankPose();
 
 const ONE = new Vector3(1, 1, 1);
 const base = new Matrix4();
@@ -75,6 +83,9 @@ const right = new Vector3();
 const before = new Vector3();
 const eul = new Euler();
 const rotXZ = (x: number, z: number) => q.setFromEuler(eul.set(x, 0, z));
+// arms pitch before they raise, so a positive pitch always swings the hand forward, hanging or overhead
+const armEul = new Euler(0, 0, 0, "ZYX");
+const headM = new Matrix4();
 const slot: Record<Hat | "pip", number> = { beanie: 0, cap: 0, ears: 0, pip: 0 };
 
 /** Writes the walk direction to `input` and returns its strength: keys are all or nothing, the stick is analog. */
@@ -146,8 +157,16 @@ function stepDrop(f: Folk, dt: number) {
   const p = ctl.player;
   drop.t += dt;
   if (ctl.intro !== drop.last) {
+    if (ctl.intro === "crouch") {
+      drop.wind = 0;
+      setGesture("crouch");
+    }
     if (ctl.intro === "fall") drop.vy = ctl.alt > DROP_IN + 0.5 ? LEAP : 0;
     drop.last = ctl.intro;
+  }
+  if (ctl.intro === "crouch") {
+    drop.wind += dt;
+    if (still || drop.wind >= WIND) ctl.intro = "fall";
   }
   if (ctl.intro === "hover") {
     ctl.alt += (HOVER - ctl.alt) * Math.min(1, dt * 3);
@@ -156,9 +175,6 @@ function stepDrop(f: Folk, dt: number) {
     const off = Math.atan2(v.crossVectors(p.heading, dir).dot(p.n), p.heading.dot(dir));
     p.heading.applyAxisAngle(p.n, off * Math.min(1, dt * 6));
     flatten(p.heading, p.n);
-    drop.wave += (1 - drop.wave) * Math.min(1, dt * 5);
-  } else {
-    drop.wave += (0 - drop.wave) * Math.min(1, dt * 8);
   }
   if (ctl.intro === "fall") {
     drop.vy -= GRAVITY * dt;
@@ -187,6 +203,22 @@ function stepDrop(f: Folk, dt: number) {
   if (drop.puff !== Infinity) drop.puff += dt;
 }
 
+/**
+ * Advances the player's gesture clock and writes the blended pose to `shown`.
+ * Gestures change by snapshotting whatever is on screen and easing from there, so nothing snaps.
+ */
+function stepGesture(dt: number) {
+  const g = ctl.gesture;
+  const motion = reduced?.matches ? 0 : 1;
+  const once = onceOf(g.current);
+  if (once !== undefined && g.t >= once) setGesture("rest");
+  if (g.blend === 0) mixPose(shown, shown, 0, from);
+  g.t += dt;
+  g.blend = Math.min(1, g.blend + dt / BLEND);
+  poseOf(g.current, g.t, motion, live);
+  mixPose(from, live, g.blend, shown);
+}
+
 /** Writes the surface frame to `base` and the torso bone (bob, waddle, lean, squash, hop) to `torso`. */
 function pose(f: Folk, i: number, lift: number): number {
   frameAt(f.n, f.heading, base, lift, SCALE);
@@ -199,9 +231,13 @@ function pose(f: Folk, i: number, lift: number): number {
     if (t > 0 && t < 1.2) hop = Math.max(hop, Math.abs(Math.sin((Math.PI * t) / 0.6)) * 0.55);
   }
   let roll = step * 0.13 * f.amp - f.lean * 0.12;
-  if (f.kind === "player" && !reduced?.matches) roll += Math.sin(drop.t * 10) * 0.06 * drop.wave;
+  let squash = f.sq;
+  if (f.kind === "player") {
+    roll += shown.lean;
+    squash += shown.squash;
+  }
   const pitch = 0.1 * f.amp;
-  const sq = Math.max(-0.25, Math.min(0.25, f.sq));
+  const sq = Math.max(-0.25, Math.min(0.25, squash));
   local.compose(v.set(0, bob + hop, 0), rotXZ(pitch, roll), s.set(1 + sq * 0.5, 1 - sq, 1 + sq * 0.5));
   torso.multiplyMatrices(base, local);
   return step;
@@ -310,7 +346,9 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
       if (f.kind === "player") {
         turn = stepPlayer(f, dt, stuck);
         stepDrop(f, dt);
-        lift = ctl.alt + (ctl.intro === "hover" && !reduced?.matches ? Math.sin(drop.t * 2.2) * 0.07 : 0);
+        stepGesture(dt);
+        // gesture bounces lift the whole body, feet and all, unlike the torso-only greeting hop
+        lift = ctl.alt + shown.bounce + (ctl.intro === "hover" && !reduced?.matches ? Math.sin(drop.t * 2.2) * 0.07 : 0);
       } else if (f.kind === "keeper") turn = stepKeeper(f, dt);
       else {
         stepVillager(f, folk, dt, Math.random);
@@ -325,12 +363,18 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
       animate(f, dt, turn);
       const step = pose(f, i, lift);
 
-      head.setMatrixAt(i, torso);
-      face.setMatrixAt(i, torso);
+      let skull = torso;
+      if (f.kind === "player" && shown.headYaw) {
+        // turn the head about the neck, not the feet
+        local.makeTranslation(0, HEAD_Y, 0).multiply(hang.makeRotationY(shown.headYaw));
+        skull = headM.multiplyMatrices(torso, local).multiply(hang.makeTranslation(0, -HEAD_Y, 0));
+      }
+      head.setMatrixAt(i, skull);
+      face.setMatrixAt(i, skull);
       body.setMatrixAt(i, torso);
-      if (f.hat === "beanie") beanie.setMatrixAt(slot.beanie++, torso);
-      else if (f.hat === "cap") cap.setMatrixAt(slot.cap++, torso);
-      else if (f.hat === "ears") ears.setMatrixAt(slot.ears++, torso);
+      if (f.hat === "beanie") beanie.setMatrixAt(slot.beanie++, skull);
+      else if (f.hat === "cap") cap.setMatrixAt(slot.cap++, skull);
+      else if (f.hat === "ears") ears.setMatrixAt(slot.ears++, skull);
       const known = f.kind === "villager" && (met.has(f.id) || ctl.greeted.includes(f.id));
       if (known) {
         // a pin keeps about the same size on screen, then fades out toward the horizon instead of becoming a speck
@@ -351,18 +395,22 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
           s.set(0.09, 0.065, 0.125),
         );
         nub.setMatrixAt(i * 4 + k, local.premultiply(base));
-        let raise = side * 0.55;
+        let raise = 0.55;
+        let fwd = swing * 0.6;
         let grow = 0;
         if (f.kind === "player") {
-          // the near-side arm waves so the bubble on the other side never hides it
-          const wave = k === 0 ? drop.wave : 0;
-          const still = reduced?.matches;
-          raise += (side * (2.4 + (still ? 0 : Math.sin(drop.t * 10) * 0.38)) - raise) * wave;
-          raise += (side * (2.3 + Math.sin(drop.t * 26 + k * 2) * 0.35) - raise) * drop.flail;
-          grow = Math.max(wave, drop.flail);
+          // gestures lead with the right arm (k 0), the side away from the intro bubble
+          raise = k ? shown.armL : shown.armR;
+          fwd = fwd * shown.swing + (k ? shown.fwdL : shown.fwdR);
+          raise += (2.3 + Math.sin(drop.t * 26 + k * 2) * 0.35 - raise) * drop.flail;
+          grow = Math.max(shown.grow, drop.flail);
         }
         // a raised arm steps out from the shoulder and grows, so the hand clears the head and reads at close range
-        local.compose(v.set(side * (SHOULDER + 0.06 * grow), 0.42, 0), rotXZ(-swing * 0.6, raise), ONE);
+        local.compose(
+          v.set(side * (SHOULDER + 0.06 * grow), 0.42, 0),
+          q.setFromEuler(armEul.set(-fwd, 0, side * raise)),
+          ONE,
+        );
         hang.compose(
           v.set(0, -0.09 - 0.07 * grow, 0),
           q.identity(),

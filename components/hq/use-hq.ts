@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { type DayLog, STEP, type Streak, freshDay, liveStreak, questRows, today } from "@/data/quests";
 import { STATIONS, STATION_BY_ID, type StationId } from "@/data/stations";
-import { type GameAction, HOVER, ctl, gameReducer, setPing, setTarget, initialState } from "./game";
+import { INTRO } from "@/data/onboarding";
+import { type GameAction, HOVER, ctl, gameReducer, setGesture, setPing, setTarget, initialState } from "./game";
 import { IDENTITY } from "./scene/dioramas";
 import { VILLAGERS } from "./scene/folk";
 import { LANDMARKS, arc, toward } from "./scene/planet";
@@ -73,7 +74,7 @@ export function useHQ() {
     ctl.frozen = state.mode !== "exploring";
     ctl.focus = state.mode === "inspecting" ? state.station : null;
     if (state.mode === "onboarding") ctl.intro = "hover";
-    else if (state.mode === "landing" && ctl.intro === "hover") ctl.intro = "fall";
+    else if (state.mode === "landing" && ctl.intro === "hover") ctl.intro = "crouch";
   }, [state]);
 
   useEffect(() => {
@@ -102,6 +103,7 @@ export function useHQ() {
   const stepAt = useRef(0);
   useEffect(() => {
     stepAt.current = performance.now();
+    if (step >= 0) setGesture(INTRO[step].gesture);
   }, [step]);
   const next = useCallback(() => {
     if (performance.now() - stepAt.current >= STEP_DWELL) dispatch({ type: "next" });

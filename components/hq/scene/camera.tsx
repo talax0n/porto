@@ -104,7 +104,8 @@ export function CameraRig() {
     if (flatten(north, aim).lengthSq() === 0) north.copy(ctl.north);
     view.dist += (dist - view.dist) * k;
 
-    const hover = ctl.intro === "hover" ? 1 : 0;
+    // the crouch before the jump still plays in the close-up
+    const hover = ctl.intro === "hover" || ctl.intro === "crouch" ? 1 : 0;
     close = close < 0 || reduced?.matches ? hover : close + (hover - close) * k;
     const c = close * close * (3 - 2 * close);
 

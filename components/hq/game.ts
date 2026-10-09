@@ -3,6 +3,7 @@ import { INTRO } from "@/data/onboarding";
 import { type DayLog, type Streak, extendStreak, freshDay, questRows } from "@/data/quests";
 import type { StationId } from "@/data/stations";
 import { VILLAGERS } from "./scene/folk";
+import type { Gesture } from "./scene/gesture";
 import { dirAt, flatten } from "./scene/planet";
 
 interface Progress {
@@ -144,8 +145,10 @@ export interface Controls {
   greeted: number[];
   /** celebration clock, advanced by the scene */
   celebrate: { active: boolean; t: number };
-  /** the player's drop: hover while the intro talks, fall when the state machine says land */
-  intro: "hover" | "fall" | "ground";
+  /** the player's drop: hover while the intro talks, a crouch to jump from, then fall when the state machine says land */
+  intro: "hover" | "crouch" | "fall" | "ground";
+  /** The player's gesture: `t` seconds into `current`, `blend` easing in from whatever showed before. */
+  gesture: { current: Gesture; t: number; blend: number };
   /** player's height above the ground, in world units */
   alt: number;
   /** distance walked since the last 10Hz poll, drained into today's steps */
@@ -182,6 +185,7 @@ export const ctl: Controls = {
   greeted: [],
   celebrate: { active: false, t: 0 },
   intro: "fall",
+  gesture: { current: "rest", t: 0, blend: 1 },
   alt: DROP_IN,
   walked: 0,
   villagers: [],
@@ -202,4 +206,12 @@ export function setPing(n: Vector3, kind: "move" | "deny", color: ColorRepresent
 
 export function setTarget(n: Vector3, station: StationId | null) {
   ctl.target = { n: n.clone().normalize(), station };
+}
+
+/** Starts `g` from the top; the crowd blends into it from the pose on screen. */
+export function setGesture(g: Gesture) {
+  const s = ctl.gesture;
+  s.current = g;
+  s.t = 0;
+  s.blend = 0;
 }
