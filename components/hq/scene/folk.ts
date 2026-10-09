@@ -5,7 +5,7 @@ import { IDENTITY } from "./dioramas";
 import { rng, scatter } from "./props";
 import { LANDMARKS, NORTH_POLE, OBSTACLES, R, arc, flatten, resolve, steer, toward, walk } from "./planet";
 
-export const VILLAGERS = 60;
+export const VILLAGERS = 10;
 
 /**
  * Character space: feet on y=0, facing +Z, about one unit tall before `SCALE`.
