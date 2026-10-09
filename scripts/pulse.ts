@@ -50,7 +50,29 @@ const list = (dir: string) => {
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
-const dayDir = (d: Date) => join(homedir(), ".codex/sessions", String(d.getFullYear()), pad(d.getMonth() + 1), pad(d.getDate()));
+const dayDir = (home: string, d: Date) => join(home, "sessions", String(d.getFullYear()), pad(d.getMonth() + 1), pad(d.getDate()));
+/** ~/.codex plus any side install (CODEX_HOME=~/.codex-something), each with its own sessions */
+const codexHomes = () => list(homedir()).filter((e) => e.isDirectory() && e.name.startsWith(".codex")).map((e) => join(homedir(), e.name));
+
+const REGISTRY = join(homedir(), ".claude/sessions");
+/**
+ * Claude Code's own process registry: sessions whose process is alive and mid-turn. A long tool
+ * call or a wait on a subagent leaves the transcript quiet for minutes while the session still works.
+ */
+function busyClaude(): Set<string> {
+  const out = new Set<string>();
+  for (const f of list(REGISTRY)) {
+    if (!f.name.endsWith(".json")) continue;
+    try {
+      const { pid, sessionId, status } = JSON.parse(readFileSync(join(REGISTRY, f.name), "utf8"));
+      if (status !== "busy" || typeof sessionId !== "string") continue;
+      // throws once the process is gone, so a crashed session's stale "busy" doesn't count
+      process.kill(pid, 0);
+      out.add(sessionId);
+    } catch {}
+  }
+  return out;
+}
 
 /** [transcript, provider, owning session]; a Claude subagent writes beside its parent, which goes quiet while it waits */
 function files(): [string, Provider, string][] {
@@ -65,8 +87,9 @@ function files(): [string, Provider, string][] {
     }
   // today and yesterday cover a session that straddles midnight
   const now = Date.now();
-  for (const d of [new Date(now), new Date(now - 864e5)])
-    for (const f of list(dayDir(d))) if (f.name.endsWith(".jsonl")) out.push([join(dayDir(d), f.name), "codex", join(dayDir(d), f.name)]);
+  for (const home of codexHomes())
+    for (const d of [new Date(now), new Date(now - 864e5)])
+      for (const f of list(dayDir(home, d))) if (f.name.endsWith(".jsonl")) out.push([join(dayDir(home, d), f.name), "codex", join(dayDir(home, d), f.name)]);
   return out;
 }
 
@@ -110,9 +133,9 @@ function claudeTitle(text: string): string | null {
   return title;
 }
 
-const CODEX_DB = join(homedir(), ".codex/state_5.sqlite");
-/** Codex keeps the short thread name in its state db (`title` there is the whole first prompt). */
+/** Codex keeps the short thread name in its state db (`title` there is the whole first prompt), beside sessions/YYYY/MM/DD. */
 function codexTitle(path: string): string | null {
+  const CODEX_DB = join(path, "../../../../../state_5.sqlite");
   const id = basename(path, ".jsonl").slice(-36);
   if (!/^[0-9a-f-]{36}$/.test(id)) return null;
   try {
@@ -150,6 +173,7 @@ function scan(): Pulse {
   }
   /** owning session -> its most recently written transcript, its own or a subagent's */
   const live = new Map<string, Session>();
+  const running = busyClaude();
   for (const [path, provider, owner] of files()) {
     let st;
     try {
@@ -168,7 +192,8 @@ function scan(): Pulse {
     if (st.size > s.offset) read(path, s, st.size);
     s.mtime = st.mtimeMs;
     const cur = live.get(owner);
-    if (now - s.mtime < LIVE_MS && (!cur || s.mtime > cur.mtime)) live.set(owner, s);
+    const awake = now - s.mtime < LIVE_MS || (path === owner && running.has(basename(path, ".jsonl")));
+    if (awake && (!cur || s.mtime > cur.mtime)) live.set(owner, s);
   }
   const busy: [number, Agent][] = [];
   for (const [owner, s] of live) {
