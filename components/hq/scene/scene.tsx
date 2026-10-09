@@ -9,15 +9,18 @@ import { CameraRig, ClickToMove } from "./camera";
 import { Confetti } from "./confetti";
 import { Crowd } from "./crowd";
 import { GithubGrid } from "./github-grid";
+import { IntroBubble } from "./intro";
 import { World } from "./world";
 
 interface SceneProps {
   state: GameState;
   onTravel: (id: StationId) => void;
   onOpen: (id: StationId) => void;
+  onNext: () => void;
+  onSkip: () => void;
 }
 
-export default function Scene({ state, onTravel, onOpen }: SceneProps) {
+export default function Scene({ state, onTravel, onOpen, onNext, onSkip }: SceneProps) {
   const [dpr, setDpr] = useState(1.5);
   const near = state.mode === "exploring" ? state.near : null;
   return (
@@ -35,6 +38,7 @@ export default function Scene({ state, onTravel, onOpen }: SceneProps) {
       <World near={near} inspecting={state.mode === "inspecting" ? state.station : null} visited={state.visited} />
       <GithubGrid />
       <Crowd met={state.met} near={near} onOpen={onOpen} />
+      {state.mode === "onboarding" && <IntroBubble step={state.step} onNext={onNext} onSkip={onSkip} />}
       <Confetti />
       <CameraRig />
       <ClickToMove onTravel={onTravel} />

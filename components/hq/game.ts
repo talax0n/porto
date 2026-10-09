@@ -1,4 +1,5 @@
 import { Vector3 } from "three";
+import { INTRO } from "@/data/onboarding";
 import type { StationId } from "@/data/stations";
 import { dirAt, flatten } from "./scene/planet";
 
@@ -9,6 +10,10 @@ interface Progress {
 }
 
 export type GameState =
+  /** the player character talks the visitor through INTRO[step], hanging above the planet */
+  | ({ mode: "onboarding"; step: number } & Progress)
+  /** dropping onto the planet; the scene owns the fall and reports touchdown with `landed` */
+  | ({ mode: "landing" } & Progress)
   | ({ mode: "exploring"; near: StationId | null } & Progress)
   | ({ mode: "inspecting"; station: StationId } & Progress);
 
@@ -17,14 +22,16 @@ export type GameAction =
   | { type: "open"; id: StationId }
   | { type: "close" }
   | { type: "greet"; ids: readonly number[] }
-  | { type: "hydrate"; visited: readonly StationId[]; met: readonly number[] };
+  | { type: "next" }
+  | { type: "skip" }
+  | { type: "landed" }
+  | { type: "replay" }
+  | { type: "hydrate"; visited: readonly StationId[]; met: readonly number[]; introSeen: boolean };
 
-export const initialState: GameState = {
-  mode: "exploring",
-  visited: new Set(),
-  met: new Set(),
-  near: null,
-};
+/** Every visit starts mid-drop; hydration turns it into the intro for first-time visitors. */
+export const initialState: GameState = { mode: "landing", visited: new Set(), met: new Set() };
+
+const progress = ({ visited, met }: GameState): Progress => ({ visited, met });
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
@@ -32,6 +39,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.mode !== "exploring" || state.near === action.id) return state;
       return { ...state, near: action.id };
     case "open":
+      if (state.mode === "onboarding" || state.mode === "landing") return state;
       return {
         mode: "inspecting",
         station: action.id,
@@ -44,12 +52,27 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case "greet":
       if (action.ids.every((id) => state.met.has(id))) return state;
       return { ...state, met: new Set([...state.met, ...action.ids]) };
-    case "hydrate":
-      return {
-        ...state,
+    case "next":
+      if (state.mode !== "onboarding") return state;
+      if (state.step + 1 < INTRO.length) return { ...state, step: state.step + 1 };
+      return { mode: "landing", ...progress(state) };
+    case "skip":
+      if (state.mode !== "onboarding") return state;
+      return { mode: "landing", ...progress(state) };
+    case "landed":
+      if (state.mode !== "landing") return state;
+      return { mode: "exploring", near: null, ...progress(state) };
+    case "replay":
+      if (state.mode !== "exploring") return state;
+      return { mode: "onboarding", step: 0, ...progress(state) };
+    case "hydrate": {
+      const restored: Progress = {
         visited: new Set([...state.visited, ...action.visited]),
         met: new Set([...state.met, ...action.met]),
       };
+      if (!action.introSeen && state.mode === "landing") return { mode: "onboarding", step: 0, ...restored };
+      return { ...state, ...restored };
+    }
   }
 }
 
@@ -72,9 +95,16 @@ export interface Controls {
   greeted: number[];
   /** celebration clock, advanced by the scene */
   celebrate: { active: boolean; t: number };
+  /** the player's drop: hover while the intro talks, fall when the state machine says land */
+  intro: "hover" | "fall" | "ground";
+  /** player's height above the ground, in world units */
+  alt: number;
 }
 
 const spawn = dirAt(8, 90);
+/** returning visitors drop from just above, which also hides the spawn */
+export const DROP_IN = 1.6;
+export const HOVER = 3.4;
 
 export const ctl: Controls = {
   player: { n: spawn, heading: flatten(new Vector3(0, 0, -1), spawn) },
@@ -86,6 +116,8 @@ export const ctl: Controls = {
   focus: null,
   greeted: [],
   celebrate: { active: false, t: 0 },
+  intro: "fall",
+  alt: DROP_IN,
 };
 
 export function setTarget(n: Vector3, station: StationId | null) {

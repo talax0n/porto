@@ -20,6 +20,14 @@ const north = ctl.north.clone();
 const side = new Vector3();
 const lookAt = new Vector3();
 const view = { x: 0, y: 0, dist: DIST };
+/** close-up on the hovering player, front-on: back off along the carried north, a little above */
+const CLOSE_BACK = 4.6;
+const CLOSE_UP = 3.2;
+/** how far into the intro close-up the camera is; negative until the first frame picks a side */
+let close = -1;
+const closePos = new Vector3();
+const closeAt = new Vector3();
+const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefers-reduced-motion: reduce)");
 
 /**
  * Messenger-style follow cam: it hovers behind the player along the carried `ctl.north`, so the
@@ -66,8 +74,10 @@ export function CameraRig() {
     north.lerp(ctl.north, k * 0.8);
     if (flatten(north, aim).lengthSq() === 0) north.copy(ctl.north);
     view.dist += (dist - view.dist) * k;
-    view.x += (ox - view.x) * k;
-    view.y += (oy - view.y) * k;
+
+    const want = ctl.intro === "hover" ? 1 : 0;
+    close = close < 0 || reduced?.matches ? want : close + (want - close) * k;
+    const c = close * close * (3 - 2 * close);
 
     lookAt.copy(aim).multiplyScalar(R + 0.5);
     camera.position
@@ -75,7 +85,26 @@ export function CameraRig() {
       .addScaledVector(aim, view.dist * Math.cos(PITCH))
       .addScaledVector(north, -view.dist * Math.sin(PITCH));
     camera.up.copy(aim);
+    if (c > 0) {
+      const p = ctl.player.n;
+      closeAt.copy(p).multiplyScalar(R + ctl.alt + 0.45);
+      // phones are tall and narrow, so back off further to keep the character and the bubble in frame
+      const back = narrow ? 1.45 : 1;
+      closePos
+        .copy(closeAt)
+        .addScaledVector(north, -CLOSE_BACK * back)
+        .addScaledVector(p, CLOSE_UP * back);
+      camera.position.lerp(closePos, c);
+      // aim a little under the character so it sits high and the planet fills the lower frame
+      lookAt.lerp(closeAt.addScaledVector(p, -0.6), c);
+      camera.up.lerp(p, c).normalize();
+      // the bubble needs room beside the character on wide screens and below it on phones
+      if (narrow) oy += (size.height * 0.1 - oy) * c;
+      else ox += (Math.min(220, size.width * 0.14) - ox) * c;
+    }
     camera.lookAt(lookAt);
+    view.x += (ox - view.x) * k;
+    view.y += (oy - view.y) * k;
     cam.setViewOffset(size.width, size.height, view.x, view.y, size.width, size.height);
 
     // key light over the camera's left shoulder, wherever on the planet that is

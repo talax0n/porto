@@ -123,3 +123,17 @@ export function Hint() {
     </ul>
   );
 }
+
+export function Replay({ onReplay }: { onReplay: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onReplay}
+      aria-label="Replay intro"
+      title="Replay intro"
+      className="grid size-8 place-items-center rounded-full border border-hq-line bg-white/80 text-[12px] font-semibold text-hq-ink backdrop-blur transition-colors hover:bg-white max-sm:size-11 pointer-coarse:size-11"
+    >
+      ?
+    </button>
+  );
+}

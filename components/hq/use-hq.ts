@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { STATIONS, STATION_BY_ID, type StationId } from "@/data/stations";
-import { ctl, gameReducer, setTarget, initialState } from "./game";
+import { HOVER, ctl, gameReducer, setTarget, initialState } from "./game";
 import { VILLAGERS } from "./scene/folk";
 import { LANDMARKS, arc, toward } from "./scene/planet";
 
 const VISITED_KEY = "hq:visited";
 const MET_KEY = "hq:met";
+const INTRO_KEY = "hq:intro";
+/** a step stays up this long before Next works, so a double click can't skip two lines */
+const STEP_DWELL = 600;
 const NEAR_RADIUS = 1.9;
 const ARRIVE_RADIUS = 0.35;
 const MOVE_KEYS = new Set([
   "KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
 ]);
+const NEXT_KEYS = new Set(["Enter", "NumpadEnter", "Space"]);
 
 export type Celebration = "stations" | "people";
 
@@ -33,12 +37,39 @@ export function useHQ() {
 
   useEffect(() => {
     stateRef.current = state;
-    ctl.frozen = state.mode === "inspecting";
+    ctl.frozen = state.mode !== "exploring";
     ctl.focus = state.mode === "inspecting" ? state.station : null;
+    if (state.mode === "onboarding") ctl.intro = "hover";
+    else if (state.mode === "landing" && ctl.intro === "hover") ctl.intro = "fall";
   }, [state]);
 
   useEffect(() => {
-    dispatch({ type: "hydrate", visited: load(VISITED_KEY, isStation), met: load(MET_KEY, isVillager) });
+    const introSeen = localStorage.getItem(INTRO_KEY) === "1";
+    // a first visit opens already hanging in the air rather than floating up from the drop-in
+    if (!introSeen) {
+      ctl.alt = HOVER;
+      ctl.player.heading.copy(ctl.north).negate();
+    }
+    dispatch({ type: "hydrate", visited: load(VISITED_KEY, isStation), met: load(MET_KEY, isVillager), introSeen });
+  }, []);
+
+  useEffect(() => {
+    if (state.mode === "exploring") localStorage.setItem(INTRO_KEY, "1");
+  }, [state.mode]);
+
+  const step = state.mode === "onboarding" ? state.step : -1;
+  const stepAt = useRef(0);
+  useEffect(() => {
+    stepAt.current = performance.now();
+  }, [step]);
+  const next = useCallback(() => {
+    if (performance.now() - stepAt.current >= STEP_DWELL) dispatch({ type: "next" });
+  }, []);
+  const skip = useCallback(() => dispatch({ type: "skip" }), []);
+  const replay = useCallback(() => {
+    ctl.target = null;
+    ctl.keys.clear();
+    dispatch({ type: "replay" });
   }, []);
 
   useEffect(() => {
@@ -83,6 +114,8 @@ export function useHQ() {
 
   const travel = useCallback(
     (id: StationId) => {
+      const { mode } = stateRef.current;
+      if (mode === "onboarding" || mode === "landing") return;
       close();
       setTarget(LANDMARKS[id].door, id);
     },
@@ -99,6 +132,7 @@ export function useHQ() {
         dispatch({ type: "greet", ids: ctl.greeted });
         ctl.greeted = [];
       }
+      if (s.mode === "landing" && ctl.intro === "ground") dispatch({ type: "landed" });
       if (s.mode !== "exploring") return;
       const p = ctl.player.n;
       let near: StationId | null = null;
@@ -122,6 +156,17 @@ export function useHQ() {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const { mode } = stateRef.current;
+      if (mode === "onboarding") {
+        if (e.code === "Escape") skip();
+        // a focused button already turns Enter and Space into its own click
+        else if (e.code === "ArrowRight" || (NEXT_KEYS.has(e.code) && !(e.target instanceof HTMLButtonElement))) {
+          e.preventDefault();
+          next();
+        }
+        return;
+      }
+      if (mode === "landing") return;
       if (MOVE_KEYS.has(e.code)) {
         if (stateRef.current.mode === "exploring") {
           e.preventDefault();
@@ -146,7 +191,7 @@ export function useHQ() {
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", clear);
     };
-  }, [interact, travel, close]);
+  }, [interact, travel, close, next, skip]);
 
-  return { state, toast, travel, open, close };
+  return { state, toast, travel, open, close, next, skip, replay };
 }
