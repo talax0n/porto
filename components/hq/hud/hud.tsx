@@ -113,7 +113,7 @@ const HINTS: [string, string][] = [
 
 export function Hint() {
   return (
-    <ul className="flex gap-3 text-[10px] text-hq-mute max-sm:hidden pointer-coarse:hidden">
+    <ul className="grid grid-cols-3 gap-x-3 gap-y-1.5 text-[10px] text-hq-mute max-sm:hidden pointer-coarse:hidden">
       {HINTS.map(([k, v]) => (
         <li key={k}>
           <kbd className="mr-1 rounded border border-hq-line bg-white px-1 py-px font-sans text-hq-ink">{k}</kbd>

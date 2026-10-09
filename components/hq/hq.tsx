@@ -32,9 +32,11 @@ export function HQ() {
       <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 sm:bottom-5">
         <Dock visited={state.visited} current={current} onTravel={travel} />
       </div>
-      <div className="absolute bottom-6 left-6 z-20">
-        <Hint />
-      </div>
+      {state.mode === "exploring" && (
+        <div className="absolute bottom-6 left-6 z-20">
+          <Hint />
+        </div>
+      )}
 
       <AnimatePresence>
         {state.mode === "inspecting" && <Panel key={state.station} id={state.station} onClose={close} />}

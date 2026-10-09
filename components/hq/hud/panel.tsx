@@ -19,7 +19,7 @@ export function Panel({ id, onClose }: { id: StationId; onClose: () => void }) {
       animate={{ opacity: 1, x: 0, y: 0 }}
       exit={off}
       transition={{ type: "spring", stiffness: 320, damping: 34 }}
-      className="absolute z-30 flex flex-col overflow-hidden rounded-3xl border border-hq-line bg-white text-hq-ink shadow-[0_24px_60px_-24px_rgba(0,0,0,0.18)] max-sm:inset-x-2 max-sm:bottom-2 max-sm:h-[68dvh] sm:right-6 sm:top-24 sm:max-h-[calc(100dvh-11.5rem)] sm:w-[min(460px,42vw)]"
+      className="absolute z-30 flex flex-col overflow-hidden rounded-3xl border border-hq-line bg-white text-hq-ink shadow-[0_24px_60px_-24px_rgba(0,0,0,0.18)] max-sm:inset-x-2 max-sm:bottom-2 max-sm:h-[60dvh] sm:right-6 sm:top-24 sm:max-h-[calc(100dvh-11.5rem)] sm:w-[min(460px,42vw)]"
     >
       <header className="flex items-start gap-3 px-6 pt-5 max-sm:px-5 max-sm:pt-4">
         <div className="flex-1">

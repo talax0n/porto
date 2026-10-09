@@ -26,6 +26,7 @@ const m = new Matrix4();
 const scale = new Matrix4();
 const tint = new Color();
 const camDir = new Vector3();
+const ndc = new Vector3();
 
 interface TileState {
   lit: number;
@@ -96,9 +97,15 @@ export function World({ near, inspecting, visited }: WorldProps) {
         mesh.setMatrixAt(i, m);
         mesh.setColorAt(i, tint.lerpColors(baseTile, accent, t.lit));
       }
-      // hide tags on the far side of the planet
+      // hide tags on the far side of the planet; while a panel is open only the open station keeps one
       const el = tags.current[i];
-      if (el) el.style.opacity = LANDMARKS[id].n.dot(camDir) > 0.5 ? "1" : "0";
+      if (el) {
+        const { n } = LANDMARKS[id];
+        ndc.copy(n).multiplyScalar(R + TAG_Y).project(camera);
+        // the top and bottom bands belong to the HUD
+        const clear = n.dot(camDir) > 0.5 && ndc.y > -0.72 && ndc.y < 0.72 && Math.abs(ndc.x) < 0.92;
+        el.style.opacity = clear && (!focus || id === focus) ? "1" : "0";
+      }
     }
     if (mesh) {
       mesh.instanceMatrix.needsUpdate = true;
