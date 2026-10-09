@@ -26,7 +26,8 @@ export default function Scene({ state, onTravel, onOpen }: SceneProps) {
       dpr={dpr}
       gl={{ antialias: true, powerPreference: "high-performance" }}
       camera={{ fov: 30, near: 0.5, far: 80, position: [0, 30, 20] }}
-      style={{ position: "absolute", inset: 0, touchAction: "none" }}
+      // clip, not hidden: focusing a button in an <Html> bubble would otherwise scroll the whole canvas away
+      style={{ position: "absolute", inset: 0, touchAction: "none", overflow: "clip" }}
     >
       <PerformanceMonitor onChange={({ factor }) => setDpr(1 + 0.5 * factor)} />
       <color attach="background" args={["#eef1ee"]} />
