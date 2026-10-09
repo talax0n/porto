@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { Chat } from "./hud/chat";
 import { Dock, Hint, Replay, Toast, Wordmark } from "./hud/hud";
 import { EdgeArrows, MapChrome, Minimap } from "./hud/map";
 import { Changelog } from "./hud/changelog";
@@ -12,6 +13,7 @@ import { Panel } from "./hud/panel";
 import { Stick } from "./hud/stick";
 import { IntroControls } from "./scene/intro";
 import { useHQ } from "./use-hq";
+import { useRoom } from "./use-room";
 
 // The DOM shell paints first; three.js loads behind a plain placeholder.
 const Scene = dynamic(() => import("./scene/scene"), {
@@ -28,11 +30,12 @@ export function HQ() {
   /** today's unfinished visit quest, which the map and the waypoints point at */
   const target = visit?.kind === "visit" ? visit.station : null;
   const map = state.mode === "map";
+  const room = useRoom(!intro);
 
   return (
     <main className="relative h-dvh w-full overflow-hidden">
       <Sky />
-      <Scene state={state} target={target} onTravel={travel} onOpen={open} onNext={next} onSkip={skip} />
+      <Scene state={state} target={target} room={room} onTravel={travel} onOpen={open} onNext={next} onSkip={skip} />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between p-4 sm:p-6">
         <div data-hud className={cn("transition-opacity duration-500", map && "max-sm:opacity-0")}>
@@ -89,6 +92,7 @@ export function HQ() {
           <Stick />
         </div>
       )}
+      {state.mode === "exploring" && <Chat room={room} />}
       {state.mode === "exploring" && <EdgeArrows target={target} onTravel={travel} />}
       {state.mode === "exploring" && (
         <div data-hud className="absolute right-5 bottom-5 z-20 max-sm:right-3 max-sm:bottom-16">

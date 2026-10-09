@@ -27,10 +27,14 @@ import {
   type Folk,
   type Hat,
   type Villager,
+  type Visitor,
+  VISITORS,
   animate,
+  lookOf,
   makeCrowd,
   move,
   stepVillager,
+  stepVisitor,
 } from "./folk";
 import { IDLES, type Gesture, type Pose, blankPose, chasePose, mirrorPose, mixPose, onceOf, poseOf } from "./gesture";
 import { LANDMARKS, R, arc, flatten, frameAt, steer, toward } from "./planet";
@@ -43,7 +47,10 @@ const TURN = 10;
 const folk = makeCrowd(ctl.player);
 const N = folk.length;
 ctl.villagers = folk.filter((f) => f.kind === "villager");
+ctl.visitors = folk.filter((f) => f.kind === "visitor");
 const hatSlots = Object.fromEntries(HATS.map((h) => [h, folk.filter((f) => f.hat === h)])) as Record<Hat, Folk[]>;
+/** a visitor's hat can be any kind, so each hat mesh keeps one spare instance per visitor slot after the fixed ones */
+const hatBase = Object.fromEntries(HATS.map((h) => [h, hatSlots[h].length])) as Record<Hat, number>;
 
 const blobMat = new MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false });
 const haloMat = new MeshBasicMaterial({ color: ACCENT });
@@ -81,7 +88,8 @@ const live = blankPose();
 /** keepers never gesture; villagers carry their own pose */
 const STILL = blankPose();
 const aim = blankPose();
-const poseFor = (f: Folk): Pose => (f.kind === "player" ? shown : f.kind === "villager" ? f.pose : STILL);
+const poseFor = (f: Folk): Pose =>
+  f.kind === "player" ? shown : f.kind === "villager" || f.kind === "visitor" ? f.pose : STILL;
 
 const ONE = new Vector3(1, 1, 1);
 const base = new Matrix4();
@@ -327,8 +335,22 @@ const LAYERS: [keyof Meshes, BufferGeometry, Material, number][] = [
   ["body", PARTS.body, CLAY, N],
   ["nub", PARTS.nub, CLAY, N * 4],
   ["blob", PARTS.blob, blobMat, N],
-  ...HATS.map((h): [Hat, BufferGeometry, Material, number] => [h, PARTS[h], CLAY, hatSlots[h].length]),
+  ...HATS.map((h): [Hat, BufferGeometry, Material, number] => [h, PARTS[h], CLAY, hatBase[h] + VISITORS]),
 ];
+
+/** Dresses a visitor's instances from their look; run when they arrive, since colours are otherwise set once. */
+function dress(i: number, f: Visitor) {
+  const { head, body, nub } = meshes;
+  head?.setColorAt(i, f.skin);
+  body?.setColorAt(i, f.shirt);
+  nub?.setColorAt(i * 4, f.foot);
+  nub?.setColorAt(i * 4 + 1, f.foot);
+  nub?.setColorAt(i * 4 + 2, f.skin);
+  nub?.setColorAt(i * 4 + 3, f.skin);
+  const hat = f.hat && meshes[f.hat];
+  if (f.hat && hat) hat.setColorAt(hatBase[f.hat] + f.slot, f.hatColor);
+  for (const mesh of [head, body, nub, hat]) if (mesh?.instanceColor) mesh.instanceColor.needsUpdate = true;
+}
 
 export function Crowd({ near, onOpen }: CrowdProps) {
   const halo = useRef<Mesh>(null);
@@ -358,10 +380,15 @@ export function Crowd({ near, onOpen }: CrowdProps) {
 
     for (let i = 0; i < N; i++) {
       const f = folk[i];
-      if (f.kind === "villager" && !f.shown) {
+      if (f.kind === "visitor" && f.fresh && f.shown) {
+        Object.assign(f, lookOf(f.look));
+        dress(i, f);
+      }
+      if ((f.kind === "villager" || f.kind === "visitor") && !f.shown) {
         for (const m of [head, face, body, blob]) m.setMatrixAt(i, NONE);
         for (let k = 0; k < 4; k++) nub.setMatrixAt(i * 4 + k, NONE);
-        if (f.hat) meshes[f.hat]?.setMatrixAt(slot[f.hat]++, NONE);
+        if (f.kind === "visitor") for (const h of HATS) meshes[h]?.setMatrixAt(hatBase[h] + f.slot, NONE);
+        else if (f.hat) meshes[f.hat]?.setMatrixAt(slot[f.hat]++, NONE);
         continue;
       }
       let turn = 0;
@@ -375,7 +402,11 @@ export function Crowd({ near, onOpen }: CrowdProps) {
         // gesture bounces lift the whole body, feet and all, unlike the torso-only greeting hop
         lift = ctl.alt + shown.bounce + (ctl.intro === "hover" && !reduced?.matches ? Math.sin(drop.t * 2.2) * 0.07 : 0);
       } else if (f.kind === "keeper") turn = stepKeeper(f, dt);
-      else if (f.alt > 0) {
+      else if (f.kind === "visitor") {
+        turn = stepVisitor(f, dt, reduced?.matches ? 0 : 1, aim);
+        floor = f.lift;
+        lift = f.lift + f.pose.bounce;
+      } else if (f.alt > 0) {
         stepFall(f, dt);
         lift = f.alt;
       } else {
@@ -399,7 +430,8 @@ export function Crowd({ near, onOpen }: CrowdProps) {
       head.setMatrixAt(i, skull);
       face.setMatrixAt(i, skull);
       body.setMatrixAt(i, torso);
-      if (f.hat) meshes[f.hat]?.setMatrixAt(slot[f.hat]++, skull);
+      if (f.kind === "visitor") for (const h of HATS) meshes[h]?.setMatrixAt(hatBase[h] + f.slot, h === f.hat ? skull : NONE);
+      else if (f.hat) meshes[f.hat]?.setMatrixAt(slot[f.hat]++, skull);
 
       for (let k = 0; k < 2; k++) {
         const side = k ? 1 : -1;

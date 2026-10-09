@@ -1,0 +1,15 @@
+name = "porto-room"
+main = "worker.ts"
+compatibility_date = "2026-01-01"
+
+# production origins are passed at deploy time: wrangler deploy --var ALLOWED_ORIGINS:https://your.site
+[vars]
+ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]
