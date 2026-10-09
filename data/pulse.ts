@@ -6,11 +6,23 @@ export const KINDS = ["edit", "run", "read", "search", "web", "other"] as const;
 export type Provider = (typeof PROVIDERS)[number];
 export type Phase = (typeof PHASES)[number];
 export type Kind = (typeof KINDS)[number];
-export type Agent = { provider: Provider; phase: Phase; kind: Kind };
+/** title is the session title Claude/Codex generated, already passed through cleanTitle */
+export type Agent = { provider: Provider; phase: Phase; kind: Kind; title: string | null };
 /** lastSeen is epoch ms; 0 means the laptop never reported */
 export type Pulse = { agents: Agent[]; lastSeen: number; runsToday: number };
 
 export const MAX_AGENTS = 10;
+export const TITLE_MAX = 60;
+
+// titles come from prompts, so anything shaped like a link, an address or a key is blanked
+const SECRETISH = /https?:\/\/\S+|\S+@\S+\.\S+|[\w-]{24,}/g;
+
+export function cleanTitle(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const t = raw.replace(SECRETISH, "…").replace(/[\p{Cc}\s]+/gu, " ").trim();
+  if (!t) return null;
+  return t.length > TITLE_MAX ? `${t.slice(0, TITLE_MAX - 1).trimEnd()}…` : t;
+}
 
 export const KIND_BY_TOOL: Record<string, Kind> = {
   Edit: "edit",
@@ -45,9 +57,10 @@ export function parsePulse(x: unknown): Pulse | null {
   if (!Array.isArray(agents) || agents.length > MAX_AGENTS || !isCount(lastSeen) || !isCount(runsToday)) return null;
   const out: Agent[] = [];
   for (const a of agents) {
-    if (!isRecord(a) || !exactly(a, ["provider", "phase", "kind"])) return null;
+    if (!isRecord(a) || !exactly(a, ["provider", "phase", "kind", "title"])) return null;
     if (!oneOf(PROVIDERS, a.provider) || !oneOf(PHASES, a.phase) || !oneOf(KINDS, a.kind)) return null;
-    out.push({ provider: a.provider, phase: a.phase, kind: a.kind });
+    if (a.title !== null && cleanTitle(a.title) !== a.title) return null;
+    out.push({ provider: a.provider, phase: a.phase, kind: a.kind, title: a.title as string | null });
   }
   return { agents: out, lastSeen, runsToday };
 }

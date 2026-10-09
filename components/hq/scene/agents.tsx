@@ -45,9 +45,9 @@ function ago(ms: number) {
 export function Agents() {
   const { pulse, at } = usePulse();
   const idle = !pulse.agents.length && pulse.lastSeen > 0;
-  const lines = idle
-    ? [`zzz · last active ${ago(at - pulse.lastSeen)} · ${pulse.runsToday} runs today`]
-    : pulse.agents.map(say);
+  const lines: { title: string | null; status: string }[] = idle
+    ? [{ title: null, status: `zzz · last active ${ago(at - pulse.lastSeen)} · ${pulse.runsToday} runs today` }]
+    : pulse.agents.map((a) => ({ title: a.title, status: say(a) }));
   const heads = useRef<(Group | null)[]>([]);
 
   useFrame(({ camera }) => {
@@ -74,7 +74,8 @@ export function Agents() {
     <group key={i} ref={(g) => void (heads.current[i] = g)}>
       <Html center zIndexRange={[13, 0]} style={{ pointerEvents: "none" }}>
         <div className="hq-bubble relative w-max max-w-[220px] rounded-2xl border border-hq-line bg-white px-3 py-2 text-left text-[12px] leading-snug text-hq-ink shadow-[0_10px_30px_-12px_rgba(0,0,0,0.25)] max-sm:max-w-[180px] max-sm:text-[11px]">
-          {line}
+          {line.title && <div className="font-medium">{line.title}</div>}
+          <div className={line.title ? "text-[11px] text-hq-ink/60" : undefined}>{line.status}</div>
         </div>
       </Html>
     </group>

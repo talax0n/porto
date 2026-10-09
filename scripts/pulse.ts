@@ -3,11 +3,12 @@
  * PRIVACY: transcript lines are parsed in memory and reduced to enums; no string from them
  * is stored, logged or sent. Run: npm run pulse
  */
-import { closeSync, openSync, readSync, readdirSync, statSync } from "node:fs";
+import { closeSync, openSync, readFileSync, readSync, readdirSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
-import { join } from "node:path";
-import { type Agent, MAX_AGENTS, type Provider, type Pulse, kindOf } from "../data/pulse.ts";
+import { basename, join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { type Agent, MAX_AGENTS, type Provider, type Pulse, cleanTitle, kindOf } from "../data/pulse.ts";
 
 const ENDPOINT = process.env.PULSE_URL;
 const SECRET = process.env.PULSE_SECRET;
@@ -26,6 +27,8 @@ interface Session {
   offset: number;
   mtime: number;
   last: Pick<Agent, "phase" | "kind">;
+  title: string | null;
+  titledAt: number;
   tail: string;
 }
 
@@ -85,6 +88,30 @@ function codexEvent(j: Line): Session["last"] | null {
 
 const EVENT = { claude: claudeEvent, codex: codexEvent };
 
+/** Claude rewrites `ai-title` as the session goes on; the last one wins. */
+function claudeTitle(text: string): string | null {
+  let title: string | null = null;
+  for (const l of text.split("\n")) {
+    if (!l.includes('"ai-title"')) continue;
+    try {
+      title = cleanTitle(JSON.parse(l).aiTitle) ?? title;
+    } catch {}
+  }
+  return title;
+}
+
+const CODEX_DB = join(homedir(), ".codex/state_5.sqlite");
+/** Codex keeps the short thread name in its state db (`title` there is the whole first prompt). */
+function codexTitle(path: string): string | null {
+  const id = basename(path, ".jsonl").slice(-36);
+  if (!/^[0-9a-f-]{36}$/.test(id)) return null;
+  try {
+    return cleanTitle(execFileSync("sqlite3", ["-readonly", CODEX_DB, `select name from threads where id = '${id}'`], { encoding: "utf8", timeout: 2_000 }));
+  } catch {
+    return null;
+  }
+}
+
 function read(path: string, s: Session, size: number) {
   const fd = openSync(path, "r");
   try {
@@ -99,6 +126,7 @@ function read(path: string, s: Session, size: number) {
         if (e) s.last = e;
       } catch {}
     }
+    if (s.provider === "claude") s.title = claudeTitle(lines.join("\n")) ?? s.title;
   } finally {
     closeSync(fd);
   }
@@ -122,7 +150,7 @@ function scan(): Pulse {
     if (!s) {
       // files that predate the watcher start at EOF; a fresh session is read from its first line
       const fresh = !first && now - st.birthtimeMs < LIVE_MS;
-      s = { provider, offset: fresh ? 0 : st.size, mtime: st.mtimeMs, last: { phase: "thinking", kind: "other" }, tail: "" };
+      s = { provider, offset: fresh ? 0 : st.size, mtime: st.mtimeMs, last: { phase: "thinking", kind: "other" }, title: null, titledAt: 0, tail: "" };
       sessions.set(path, s);
     }
     if (st.size < s.offset) s.offset = s.tail.length ? 0 : st.size;
@@ -130,7 +158,12 @@ function scan(): Pulse {
     s.mtime = st.mtimeMs;
     if (now - s.mtime < LIVE_MS) {
       countedToday.add(path);
-      agents.push({ provider, ...s.last });
+      // a running Claude session's title sits behind the offset; Codex renames threads, so recheck it each minute
+      if (!s.titledAt || (provider === "codex" && now - s.titledAt > HEARTBEAT_MS)) {
+        s.titledAt = now;
+        s.title = provider === "claude" ? (claudeTitle(readFileSync(path, "utf8")) ?? s.title) : codexTitle(path);
+      }
+      agents.push({ provider, ...s.last, title: s.title });
     }
   }
   first = false;
