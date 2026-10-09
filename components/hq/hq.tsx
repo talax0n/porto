@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Dock, Hint, Quest, Replay, Toast, Wordmark } from "./hud/hud";
+import { Dock, Hint, Replay, Toast, Wordmark } from "./hud/hud";
 import { EdgeArrows, MapChrome, Minimap } from "./hud/map";
 import { Today } from "./hud/today";
 import { Panel } from "./hud/panel";
@@ -31,7 +31,7 @@ export function HQ() {
     <main className="relative h-dvh w-full overflow-hidden bg-white">
       <Scene state={state} target={target} onTravel={travel} onOpen={open} onNext={next} onSkip={skip} />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-4 sm:p-6">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between p-4 sm:p-6">
         <div data-hud className={cn("transition-opacity duration-500", map && "max-sm:opacity-0")}>
           <Wordmark />
         </div>
@@ -45,7 +45,6 @@ export function HQ() {
           )}
           aria-hidden={intro}
         >
-          <Quest visited={state.visited} met={state.met} />
           {quests && state.mode === "exploring" && <Today quests={quests} streak={streak} onTravel={travel} />}
         </div>
       </div>
@@ -75,7 +74,7 @@ export function HQ() {
         </div>
       )}
       {state.mode === "exploring" && (
-        <div data-hud className="absolute bottom-5 left-5 z-20 flex items-end gap-1.5 max-sm:bottom-auto max-sm:left-3 max-sm:top-24">
+        <div data-hud className="absolute bottom-20 left-5 z-20 flex items-end gap-1.5 max-sm:bottom-auto max-sm:left-3 max-sm:top-24 sm:pointer-coarse:bottom-5">
           <Hint />
           <Replay onReplay={replay} />
         </div>

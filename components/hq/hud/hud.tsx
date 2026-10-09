@@ -2,47 +2,17 @@ import { motion } from "framer-motion";
 import { STATIONS, type StationId } from "@/data/stations";
 import { PROFILE } from "@/data/profile";
 import { cn } from "@/lib/utils";
-import { VILLAGERS } from "../scene/folk";
+import { Ps } from "./ps";
 
 export function Wordmark() {
   return (
-    <div>
+    <div className="relative">
       <h1 className="font-display text-2xl font-extrabold leading-none tracking-tight text-hq-ink sm:text-3xl">
         {PROFILE.name}
       </h1>
-      <p className="mt-1.5 text-[11px] tracking-[0.12em] text-hq-mute uppercase">{PROFILE.role}</p>
-    </div>
-  );
-}
-
-export function Quest({ visited, met }: { visited: ReadonlySet<StationId>; met: ReadonlySet<number> }) {
-  const total = STATIONS.length;
-  const done = visited.size >= total;
-  return (
-    <div className="flex flex-col items-end gap-2">
-      <p className="text-[11px] tracking-[0.12em] text-hq-mute uppercase">
-        {done ? "All lit" : `Light up all ${total}`} · {visited.size}/{total}
-      </p>
-      <ul className="flex gap-1.5" aria-label={`${visited.size} of ${total} stations visited`}>
-        {STATIONS.map((s) => (
-          <li
-            key={s.id}
-            title={s.label}
-            className={cn(
-              "size-2.5 rounded-full border transition-colors duration-500",
-              visited.has(s.id) ? "border-hq-accent bg-hq-accent" : "border-hq-ink/25 bg-transparent",
-            )}
-          />
-        ))}
-      </ul>
-      <p className="mt-1 text-[11px] tracking-[0.12em] text-hq-mute uppercase" aria-live="polite">
-        People met · <span className="tabular-nums text-hq-ink">{met.size}/{VILLAGERS}</span>
-      </p>
-      <div className="h-1 w-24 overflow-hidden rounded-full bg-hq-ink/10">
-        <div
-          className="h-full rounded-full bg-hq-accent transition-[width] duration-500"
-          style={{ width: `${(met.size / VILLAGERS) * 100}%` }}
-        />
+      <div className="mt-1.5 text-[11px] tracking-[0.12em] text-hq-mute uppercase">
+        {PROFILE.role}
+        <Ps />
       </div>
     </div>
   );
@@ -99,6 +69,7 @@ export function Dock({ visited, current, onTravel }: DockProps) {
 const HINTS: [string, string][] = [
   ["WASD", "walk"],
   ["Click", "go"],
+  ["Drag", "look"],
   ["Bump", "say hi"],
   ["E", "open"],
   ["1–7", "jump"],
@@ -108,10 +79,10 @@ const HINTS: [string, string][] = [
 
 export function Hint() {
   return (
-    <ul className="grid grid-cols-3 gap-x-3 gap-y-1.5 rounded-xl border border-hq-line bg-white/80 px-2.5 py-2 text-[10px] text-hq-mute backdrop-blur max-sm:hidden pointer-coarse:hidden">
+    <ul className="flex flex-col gap-1 text-[10px] font-medium text-hq-ink [text-shadow:0_0_4px_rgba(255,255,255,0.9)] max-sm:hidden pointer-coarse:hidden">
       {HINTS.map(([k, v]) => (
-        <li key={k}>
-          <kbd className="mr-1 rounded border border-hq-line bg-white px-1 py-px font-sans text-hq-ink">{k}</kbd>
+        <li key={k} className="flex items-center gap-1.5">
+          <kbd className="min-w-10 rounded-md border border-hq-line bg-white/90 px-1 py-px text-center font-sans text-hq-ink shadow-sm backdrop-blur [text-shadow:none]">{k}</kbd>
           {v}
         </li>
       ))}
