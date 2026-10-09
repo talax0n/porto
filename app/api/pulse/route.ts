@@ -8,8 +8,8 @@ const EMPTY: Pulse = { agents: [], lastSeen: 0, runsToday: 0 };
 
 const REST_URL = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
 const TOKEN = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-/** dev only: serverless instances don't share it */
-let memory: string | null = null;
+/** dev only: serverless instances don't share it; on globalThis so dev recompiles keep it */
+const mem = globalThis as { pulseMemory?: string };
 
 async function redis(...cmd: string[]): Promise<string | null> {
   const res = await fetch(REST_URL!, {
@@ -22,10 +22,10 @@ async function redis(...cmd: string[]): Promise<string | null> {
   return ((await res.json()) as { result: string | null }).result;
 }
 
-const load = async () => (REST_URL && TOKEN ? redis("GET", KEY) : memory);
+const load = async () => (REST_URL && TOKEN ? redis("GET", KEY) : (mem.pulseMemory ?? null));
 const save = async (json: string) => {
   if (REST_URL && TOKEN) await redis("SET", KEY, json);
-  else memory = json;
+  else mem.pulseMemory = json;
 };
 
 function authorized(req: Request, secret: string) {
