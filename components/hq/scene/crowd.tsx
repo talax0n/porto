@@ -19,11 +19,12 @@ import { ctl } from "../game";
 import { ACCENT, CLAY } from "./clay";
 import {
   HATS,
+  HEAD_Y,
   HOP,
   PARTS,
   RADIUS,
+  PLAIN,
   SCALE,
-  SKIN,
   type Folk,
   type Hat,
   animate,
@@ -43,12 +44,11 @@ const N = folk.length;
 const hatSlots = Object.fromEntries(HATS.map((h) => [h, folk.filter((f) => f.hat === h)])) as Record<Hat, Folk[]>;
 
 const blobMat = new MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false });
-const pipMat = new MeshBasicMaterial({ color: ACCENT });
+const pipMat = new MeshBasicMaterial({ vertexColors: true });
 const haloMat = new MeshBasicMaterial({ color: ACCENT });
 const haloGeo = new TorusGeometry(0.42, 0.03, 6, 36).rotateX(Math.PI / 2);
 
 const ONE = new Vector3(1, 1, 1);
-const ZERO = new Matrix4().makeScale(0, 0, 0);
 const base = new Matrix4();
 const torso = new Matrix4();
 const local = new Matrix4();
@@ -58,11 +58,12 @@ const v = new Vector3();
 const s = new Vector3();
 const dir = new Vector3();
 const input = new Vector3();
+const camDir = new Vector3();
 const right = new Vector3();
 const before = new Vector3();
 const eul = new Euler();
 const rotXZ = (x: number, z: number) => q.setFromEuler(eul.set(x, 0, z));
-const slot: Record<Hat, number> = { beanie: 0, cap: 0, ears: 0 };
+const slot: Record<Hat | "pip", number> = { beanie: 0, cap: 0, ears: 0, pip: 0 };
 
 function readInput(): boolean {
   const k = ctl.keys;
@@ -216,24 +217,25 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
   useEffect(() => {
     const { head, face, body, nub, pip } = meshes;
     folk.forEach((f, i) => {
-      head?.setColorAt(i, SKIN);
-      face?.setColorAt(i, SKIN);
+      head?.setColorAt(i, f.skin);
+      face?.setColorAt(i, PLAIN);
       body?.setColorAt(i, f.shirt);
       nub?.setColorAt(i * 4, f.foot);
       nub?.setColorAt(i * 4 + 1, f.foot);
-      nub?.setColorAt(i * 4 + 2, f.shirt);
-      nub?.setColorAt(i * 4 + 3, f.shirt);
-      pip?.setColorAt(i, SKIN);
+      nub?.setColorAt(i * 4 + 2, f.skin);
+      nub?.setColorAt(i * 4 + 3, f.skin);
+      pip?.setColorAt(i, PLAIN);
     });
     for (const h of HATS) hatSlots[h].forEach((f, j) => meshes[h]?.setColorAt(j, f.hatColor));
     for (const mesh of Object.values(meshes)) if (mesh?.instanceColor) mesh.instanceColor.needsUpdate = true;
   }, []);
 
-  useFrame((_, rawDt) => {
+  useFrame(({ camera }, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
     const { head, face, body, nub, pip, blob, beanie, cap, ears } = meshes;
     if (!head || !face || !body || !nub || !pip || !blob || !beanie || !cap || !ears) return;
-    slot.beanie = slot.cap = slot.ears = 0;
+    slot.beanie = slot.cap = slot.ears = slot.pip = 0;
+    camDir.copy(camera.position).normalize();
     const met = metRef.current;
 
     for (let i = 0; i < N; i++) {
@@ -261,7 +263,14 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
       else if (f.hat === "cap") cap.setMatrixAt(slot.cap++, torso);
       else if (f.hat === "ears") ears.setMatrixAt(slot.ears++, torso);
       const known = f.kind === "villager" && (met.has(f.id) || ctl.greeted.includes(f.id));
-      pip.setMatrixAt(i, known ? torso : ZERO);
+      if (known) {
+        // a pin keeps about the same size on screen, then fades out toward the horizon instead of becoming a speck
+        const d = camera.position.distanceTo(v.copy(f.n).multiplyScalar(R));
+        const facing = f.n.dot(camDir);
+        const k = Math.min(1.3, d / 16) * Math.min(1, Math.max(0, (facing - 0.55) / 0.15));
+        local.compose(v.set(0, HEAD_Y + 0.4, 0), q.identity(), s.setScalar(k));
+        if (k > 0) pip.setMatrixAt(slot.pip++, local.premultiply(torso));
+      }
 
       for (let k = 0; k < 2; k++) {
         const side = k ? 1 : -1;
@@ -289,6 +298,8 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
     face.instanceMatrix.needsUpdate = true;
     body.instanceMatrix.needsUpdate = true;
     nub.instanceMatrix.needsUpdate = true;
+    // only met villagers draw a pin, so strangers cost no triangles
+    pip.count = slot.pip;
     pip.instanceMatrix.needsUpdate = true;
     blob.instanceMatrix.needsUpdate = true;
     beanie.instanceMatrix.needsUpdate = true;

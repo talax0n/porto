@@ -1,7 +1,8 @@
-import { BufferGeometry, Color, Matrix4, PlaneGeometry, SphereGeometry, Vector3 } from "three";
+import { BufferGeometry, Color, ConeGeometry, Matrix4, PlaneGeometry, SphereGeometry, Vector3 } from "three";
 import { STATIONS, type StationId } from "@/data/stations";
 import { ACCENT, TONE, ball, cyl, merge, paint, part, pill, ring, type Part } from "./clay";
-import { PASTEL, rng, scatter } from "./props";
+import { IDENTITY } from "./dioramas";
+import { rng, scatter } from "./props";
 import { LANDMARKS, NORTH_POLE, OBSTACLES, R, arc, flatten, resolve, steer, toward, walk } from "./planet";
 
 export const VILLAGERS = 60;
@@ -12,7 +13,7 @@ export const VILLAGERS = 60;
  * bone it hangs from (torso or head) and no per-part offsets live in the frame loop.
  */
 export const SCALE = 0.78;
-const HEAD_Y = 0.7;
+export const HEAD_Y = 0.7;
 const HEAD_R = 0.33;
 const HEAD_SQUASH = 0.9;
 
@@ -70,22 +71,35 @@ export const PARTS = {
     part(pill(0.032, 0.14, 2, 6), [-0.125, HEAD_Y + 0.38, 0.045], { rot: [0, 0, 0.22], tone: "#f3c4c4" }),
     part(pill(0.032, 0.14, 2, 6), [0.125, HEAD_Y + 0.38, 0.045], { rot: [0, 0, -0.22], tone: "#f3c4c4" }),
   ]),
-  /** "met" marker floating over the head */
-  pip: bake(ell([6, 4]), [0.055, 0.055, 0.055], [0, HEAD_Y + 0.44, 0]),
+  /** "met" map pin, tip at the origin; crowd.tsx lifts it over the head and sizes it by distance */
+  pip: merge([
+    part(ball(0.1, 7, 4), [0, 0.2, 0], { tone: ACCENT }),
+    part(new ConeGeometry(0.075, 0.16, 7, 1, true), [0, 0.09, 0], { rot: [Math.PI, 0, 0], tone: ACCENT }),
+    part(ball(0.05, 5, 3), [0, 0.27, 0], { scale: [1, 0.6, 1], tone: "#ffffff" }),
+  ]),
   blob: flatPlane(),
 } satisfies Record<string, BufferGeometry>;
 
 export const HATS = ["beanie", "cap", "ears"] as const;
 export type Hat = (typeof HATS)[number];
 
-export const SKIN = new Color(TONE.white);
-const FOOT = new Color(TONE.light);
+/** Instance tint that leaves a part's baked vertex colours untouched (face dots, met pin). */
+export const PLAIN = new Color("#ffffff");
+
+const colors = (hex: readonly string[]) => hex.map((c) => new Color(c));
+const SKIN = colors(["#f8dcc6", "#f0c6a4", "#e2ad86", "#c98e66", "#a46d4a", "#7c4e34"]);
+const CLOTHES = colors(["#f08a7e", "#f6b26b", "#f5d06a", "#8fcf9a", "#7fb8e6", "#b49be0", "#f4a3c0", "#5fc2b8"]);
+const HAT = colors(["#f08a7e", "#f5d06a", "#7fb8e6", "#b49be0", "#8fcf9a", "#fbfaf7", "#5b6474"]);
+/** Bunny ears keep light shades; their pink lining is multiplied by this tint. */
+const EARS = colors(["#fbfaf7", "#fbe3ea", "#f6ecd6", "#e8e1f6"]);
+const SHOES = colors(["#8a6f60", "#6d7a94", "#a8765c", "#fbfaf7"]);
 
 interface Body {
   n: Vector3;
   heading: Vector3;
   hat: Hat | null;
   hatColor: Color;
+  skin: Color;
   shirt: Color;
   foot: Color;
   /** walk speed now, in surface units per second */
@@ -109,7 +123,7 @@ export type Folk = Body &
     | { kind: "keeper"; station: StationId; post: Vector3; rest: Vector3 }
   );
 
-const rest = (): Omit<Body, "n" | "heading" | "hat" | "hatColor" | "shirt" | "foot"> => ({
+const rest = (): Omit<Body, "n" | "heading" | "hat" | "hatColor" | "skin" | "shirt" | "foot"> => ({
   speed: 0,
   phase: 0,
   amp: 0,
@@ -120,7 +134,6 @@ const rest = (): Omit<Body, "n" | "heading" | "hat" | "hatColor" | "shirt" | "fo
 });
 
 const accent = new Color(ACCENT);
-const pastel = PASTEL.map((c) => new Color(c));
 
 /** The player rides on `ctl.player`'s vectors, so the crowd always reads the live pose. */
 export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
@@ -133,8 +146,10 @@ export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
       ...rest(),
       hat: "beanie",
       hatColor: accent,
-      shirt: SKIN,
-      foot: FOOT,
+      skin: SKIN[1],
+      // the only white outfit on the planet, so "you" reads at a glance in a colourful crowd
+      shirt: new Color(TONE.white),
+      foot: new Color("#4a5694"),
     },
   ];
   for (const s of STATIONS) {
@@ -148,9 +163,10 @@ export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
       heading: keeperFacing.clone(),
       ...rest(),
       hat: "cap",
-      hatColor: new Color(TONE.white),
-      shirt: pick(pastel),
-      foot: FOOT,
+      hatColor: new Color(IDENTITY[s.id].top),
+      skin: pick(SKIN),
+      shirt: new Color(IDENTITY[s.id].wall),
+      foot: pick(SHOES),
     });
   }
   for (let id = 0; id < VILLAGERS; id++) {
@@ -158,6 +174,7 @@ export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
     do scatter(rand, n);
     while (OBSTACLES.some((o) => arc(n, o.n) < o.r + 0.4) || arc(n, NORTH_POLE) < 2.5);
     const roll = rand();
+    const hat: Hat | null = roll < 0.18 ? "ears" : roll < 0.4 ? "beanie" : roll < 0.62 ? "cap" : null;
     folk.push({
       kind: "villager",
       id,
@@ -167,10 +184,11 @@ export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
       want: 0,
       turn: 0,
       timer: rand() * 3,
-      hat: roll < 0.18 ? "ears" : roll < 0.34 ? "beanie" : roll < 0.48 ? "cap" : null,
-      hatColor: rand() < 0.5 ? new Color(TONE.white) : pick(pastel),
-      shirt: rand() < 0.25 ? new Color(TONE.white) : pick(pastel),
-      foot: FOOT,
+      hat,
+      hatColor: pick(hat === "ears" ? EARS : HAT),
+      skin: pick(SKIN),
+      shirt: pick(CLOTHES),
+      foot: pick(SHOES),
     });
   }
   return folk;
