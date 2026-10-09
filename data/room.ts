@@ -9,7 +9,7 @@ export const ROOMS_TRIED = 4;
 export const ROOM_NAME = /^room-[0-9]$/;
 
 /** One tap each; `preset` messages carry an index into this. */
-export const PRESETS = ["hi!", "nice portfolio", "follow me", "gg", "brb", "👋"] as const;
+export const PRESETS = ["hi!", "nice portfolio", "follow me", "gg", "brb"] as const;
 /** Names match `Gesture` in the scene, which is what plays. */
 export const EMOTES = ["wave", "cheer", "hop", "point"] as const;
 export type Emote = (typeof EMOTES)[number];

@@ -60,8 +60,8 @@ assert.equal(parseClient(enc({ t: "say", text: "https://x.io" })), null, "nothin
 assert.equal(parseClient(enc({ t: "say", text: "hi", id: "a1b2c3" })), null, "cannot speak as another id");
 assert.deepEqual(parseClient(enc({ t: "emote", e: "wave" })), { t: "emote", e: "wave" });
 assert.equal(parseClient(enc({ t: "emote", e: "sleep" })), null, "unknown emote");
-assert.deepEqual(parseClient(enc({ t: "preset", p: 5 })), { t: "preset", p: 5 });
-for (const p of [6, -1, 1.5, "0"]) assert.equal(parseClient(enc({ t: "preset", p })), null, `bad preset ${p}`);
+assert.deepEqual(parseClient(enc({ t: "preset", p: 4 })), { t: "preset", p: 4 });
+for (const p of [5, -1, 1.5, "0"]) assert.equal(parseClient(enc({ t: "preset", p })), null, `bad preset ${p}`);
 assert.deepEqual(parseClient(enc({ t: "name", name: "  Mossy   Otter " })), { t: "name", name: "Mossy Otter" });
 assert.equal(parseClient(enc({ t: "name", name: "a".repeat(17) })), null, "name too long");
 assert.equal(parseClient(enc({ t: "name", name: "shit" })), null, "blocked name");
