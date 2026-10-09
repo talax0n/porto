@@ -2,8 +2,10 @@ import { useEffect, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { DirectionalLight, type Object3D, type PerspectiveCamera, Raycaster, Sphere, Vector2, Vector3 } from "three";
 import { STATIONS, type StationId } from "@/data/stations";
-import { ctl, setTarget } from "../game";
-import { LANDMARKS, R, flatten } from "./planet";
+import { ctl, setPing, setTarget } from "../game";
+import { RADIUS } from "./folk";
+import { DENY, MOVE } from "./ping";
+import { LANDMARKS, R, blocked, flatten } from "./planet";
 
 /** Tilt of the view away from straight down; the horizon curves in near the top of the screen. */
 const PITCH = 1.0;
@@ -148,7 +150,12 @@ export function ClickToMove({ onTravel }: { onTravel: (id: StationId) => void })
       const ground = ray.ray.intersectSphere(planet, hit) ? ray.ray.origin.distanceTo(hit) : Infinity;
       const first = ray.intersectObjects(tagged, false)[0];
       if (first && first.distance < ground + 0.5) return onTravel(nearestStation(first.point.normalize()));
-      if (ground < Infinity) setTarget(hit, null);
+      if (ground < Infinity) {
+        setTarget(hit, null);
+        // the walker still goes as near as it can, but the marker says the spot itself is taken
+        const taken = blocked(hit.normalize(), RADIUS);
+        setPing(hit, taken ? "deny" : "move", taken ? DENY : MOVE);
+      }
     };
     el.addEventListener("pointerdown", onDown);
     el.addEventListener("pointerup", onUp);

@@ -10,6 +10,7 @@ import { Confetti } from "./confetti";
 import { Crowd } from "./crowd";
 import { GithubGrid } from "./github-grid";
 import { IntroBubble } from "./intro";
+import { Ping } from "./ping";
 import { Waypoints } from "./waypoints";
 import { World } from "./world";
 
@@ -49,6 +50,7 @@ export default function Scene({ state, target, onTravel, onOpen, onNext, onSkip 
       <GithubGrid />
       <Crowd met={state.met} near={near} onOpen={onOpen} />
       {state.mode === "onboarding" && <IntroBubble step={state.step} onNext={onNext} onSkip={onSkip} />}
+      <Ping />
       <Confetti />
       <CameraRig />
       <ClickToMove onTravel={onTravel} />

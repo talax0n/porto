@@ -1,4 +1,4 @@
-import { Vector3 } from "three";
+import { Color, type ColorRepresentation, Vector3 } from "three";
 import { INTRO } from "@/data/onboarding";
 import { type DayLog, type Streak, extendStreak, freshDay, questRows } from "@/data/quests";
 import type { StationId } from "@/data/stations";
@@ -152,6 +152,8 @@ export interface Controls {
   villagers: readonly { n: Vector3; id: number }[];
   /** screen-edge arrows by STATIONS index; the HUD renders them and the scene moves them each frame */
   edges: (HTMLElement | null)[];
+  /** the one move-command marker; a new click rewrites it in place */
+  ping: { n: Vector3; t: number; kind: "move" | "deny"; color: Color };
 }
 
 const spawn = dirAt(8, 90);
@@ -174,7 +176,17 @@ export const ctl: Controls = {
   walked: 0,
   villagers: [],
   edges: [],
+  ping: { n: new Vector3(), t: -Infinity, kind: "move", color: new Color() },
 };
+
+/** `t` is performance.now() in seconds, the clock the marker's frame loop reads too. */
+export function setPing(n: Vector3, kind: "move" | "deny", color: ColorRepresentation) {
+  const p = ctl.ping;
+  p.n.copy(n).normalize();
+  p.kind = kind;
+  p.color.set(color);
+  p.t = performance.now() / 1000;
+}
 
 export function setTarget(n: Vector3, station: StationId | null) {
   ctl.target = { n: n.clone().normalize(), station };

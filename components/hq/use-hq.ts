@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { type DayLog, STEP, type Streak, freshDay, liveStreak, questRows, today } from "@/data/quests";
 import { STATIONS, STATION_BY_ID, type StationId } from "@/data/stations";
-import { type GameAction, HOVER, ctl, gameReducer, setTarget, initialState } from "./game";
+import { type GameAction, HOVER, ctl, gameReducer, setPing, setTarget, initialState } from "./game";
+import { IDENTITY } from "./scene/dioramas";
 import { VILLAGERS } from "./scene/folk";
 import { LANDMARKS, arc, toward } from "./scene/planet";
 
@@ -201,6 +202,7 @@ export function useHQ() {
       if (mode === "onboarding" || mode === "landing") return;
       close();
       setTarget(LANDMARKS[id].door, id);
+      setPing(LANDMARKS[id].door, "move", IDENTITY[id].top);
     },
     [close],
   );

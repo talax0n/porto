@@ -104,6 +104,9 @@ export interface Obstacle {
 /** Mutable: props.ts appends trees and lamps once their scatter is generated. */
 export const OBSTACLES: Obstacle[] = STATIONS.map((s) => ({ n: LANDMARKS[s.id].n, r: FOOTPRINT }));
 
+/** Whether a walker of `radius` could never stand at n, because it lies inside an obstacle's footprint. */
+export const blocked = (n: Vector3, radius: number) => OBSTACLES.some((o) => arc(n, o.n) < o.r + radius);
+
 const away = new Vector3();
 const perp = new Vector3();
 const toGoal = new Vector3();
