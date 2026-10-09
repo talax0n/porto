@@ -48,15 +48,21 @@ const list = (dir: string) => {
 const pad = (n: number) => String(n).padStart(2, "0");
 const dayDir = (d: Date) => join(homedir(), ".codex/sessions", String(d.getFullYear()), pad(d.getMonth() + 1), pad(d.getDate()));
 
-function files(): [string, Provider][] {
-  const out: [string, Provider][] = [];
+/** [transcript, provider, owning session]; a Claude subagent writes beside its parent, which goes quiet while it waits */
+function files(): [string, Provider, string][] {
+  const out: [string, Provider, string][] = [];
   const claude = join(homedir(), ".claude/projects");
   for (const p of list(claude).filter((e) => e.isDirectory()))
-    for (const f of list(join(claude, p.name))) if (f.name.endsWith(".jsonl")) out.push([join(claude, p.name, f.name), "claude"]);
+    for (const f of list(join(claude, p.name))) {
+      const path = join(claude, p.name, f.name);
+      if (f.isFile() && f.name.endsWith(".jsonl")) out.push([path, "claude", path]);
+      else if (f.isDirectory())
+        for (const a of list(join(path, "subagents"))) if (a.name.endsWith(".jsonl")) out.push([join(path, "subagents", a.name), "claude", `${path}.jsonl`]);
+    }
   // today and yesterday cover a session that straddles midnight
   const now = Date.now();
   for (const d of [new Date(now), new Date(now - 864e5)])
-    for (const f of list(dayDir(d))) if (f.name.endsWith(".jsonl")) out.push([join(dayDir(d), f.name), "codex"]);
+    for (const f of list(dayDir(d))) if (f.name.endsWith(".jsonl")) out.push([join(dayDir(d), f.name), "codex", join(dayDir(d), f.name)]);
   return out;
 }
 
@@ -139,7 +145,9 @@ function scan(): Pulse {
     countedToday.clear();
   }
   const agents: Agent[] = [];
-  for (const [path, provider] of files()) {
+  /** owning session -> its most recently written transcript, its own or a subagent's */
+  const live = new Map<string, Session>();
+  for (const [path, provider, owner] of files()) {
     let st;
     try {
       st = statSync(path);
@@ -156,15 +164,21 @@ function scan(): Pulse {
     if (st.size < s.offset) s.offset = s.tail.length ? 0 : st.size;
     if (st.size > s.offset) read(path, s, st.size);
     s.mtime = st.mtimeMs;
-    if (now - s.mtime < LIVE_MS) {
-      countedToday.add(path);
-      // a running Claude session's title sits behind the offset; Codex renames threads, so recheck it each minute
-      if (!s.titledAt || (provider === "codex" && now - s.titledAt > HEARTBEAT_MS)) {
-        s.titledAt = now;
-        s.title = provider === "claude" ? (claudeTitle(readFileSync(path, "utf8")) ?? s.title) : codexTitle(path);
-      }
-      agents.push({ provider, ...s.last, title: s.title });
+    const cur = live.get(owner);
+    if (now - s.mtime < LIVE_MS && (!cur || s.mtime > cur.mtime)) live.set(owner, s);
+  }
+  for (const [owner, s] of live) {
+    countedToday.add(owner);
+    // the title is the owning session's, never a subagent's brief
+    const o = sessions.get(owner) ?? s;
+    // a running Claude session's title sits behind the offset; Codex renames threads, so recheck it each minute
+    if (!o.titledAt || (o.provider === "codex" && now - o.titledAt > HEARTBEAT_MS)) {
+      o.titledAt = now;
+      try {
+        o.title = o.provider === "claude" ? (claudeTitle(readFileSync(owner, "utf8")) ?? o.title) : codexTitle(owner);
+      } catch {}
     }
+    agents.push({ provider: s.provider, ...s.last, title: o.title });
   }
   first = false;
   const lastSeen = Math.round(Math.max(0, ...[...sessions.values()].map((s) => s.mtime)));
