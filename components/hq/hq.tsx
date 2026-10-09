@@ -7,6 +7,7 @@ import { Dock, Hint, Quest, Replay, Toast, Wordmark } from "./hud/hud";
 import { EdgeArrows, MapChrome, Minimap } from "./hud/map";
 import { Today } from "./hud/today";
 import { Panel } from "./hud/panel";
+import { Stick } from "./hud/stick";
 import { IntroControls } from "./scene/intro";
 import { useHQ } from "./use-hq";
 
@@ -80,6 +81,11 @@ export function HQ() {
         </div>
       )}
 
+      {state.mode === "exploring" && (
+        <div className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] z-20 hidden pointer-coarse:block sm:bottom-20 sm:left-5">
+          <Stick />
+        </div>
+      )}
       {state.mode === "exploring" && <EdgeArrows target={target} onTravel={travel} />}
       {state.mode === "exploring" && (
         <div data-hud className="absolute right-5 bottom-5 z-20 max-sm:right-3 max-sm:bottom-16">

@@ -20,6 +20,6 @@ export const INTRO: readonly IntroLine[] = [
   },
   {
     text: "WASD or click to walk. Ready? Here I go!",
-    touch: "Tap anywhere to walk. Ready? Here I go!",
+    touch: "Drag the stick or tap anywhere to walk. Ready? Here I go!",
   },
 ];

@@ -135,6 +135,8 @@ export interface Controls {
   /** a great-circle walk toward a surface point, optionally ending at a station door */
   target: { n: Vector3; station: StationId | null } | null;
   keys: Set<string>;
+  /** the touch joystick: screen-right and screen-up in [-1, 1], length ≤ 1, dead zone already applied */
+  stick: { x: number; y: number };
   zoomMul: number;
   frozen: boolean;
   focus: StationId | null;
@@ -173,6 +175,7 @@ export const ctl: Controls = {
   north: flatten(new Vector3(0, 0, -1), spawn),
   target: null,
   keys: new Set(),
+  stick: { x: 0, y: 0 },
   zoomMul: 1,
   frozen: false,
   focus: null,

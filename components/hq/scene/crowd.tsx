@@ -77,26 +77,29 @@ const eul = new Euler();
 const rotXZ = (x: number, z: number) => q.setFromEuler(eul.set(x, 0, z));
 const slot: Record<Hat | "pip", number> = { beanie: 0, cap: 0, ears: 0, pip: 0 };
 
-function readInput(): boolean {
+/** Writes the walk direction to `input` and returns its strength: keys are all or nothing, the stick is analog. */
+function readInput(): number {
   const k = ctl.keys;
-  const ix = +(k.has("KeyD") || k.has("ArrowRight")) - +(k.has("KeyA") || k.has("ArrowLeft"));
-  const iy = +(k.has("KeyW") || k.has("ArrowUp")) - +(k.has("KeyS") || k.has("ArrowDown"));
-  if (!ix && !iy) return false;
+  const ix = +(k.has("KeyD") || k.has("ArrowRight")) - +(k.has("KeyA") || k.has("ArrowLeft")) + ctl.stick.x;
+  const iy = +(k.has("KeyW") || k.has("ArrowUp")) - +(k.has("KeyS") || k.has("ArrowDown")) + ctl.stick.y;
+  const m = Math.min(1, Math.hypot(ix, iy));
+  if (!m) return 0;
   const { n } = ctl.player;
   right.crossVectors(ctl.north, n);
   input.copy(ctl.north).multiplyScalar(iy).addScaledVector(right, ix);
   flatten(input, n);
-  return true;
+  return m;
 }
 
 /** Player intent: keys beat a click target; returns the turn rate for leaning. */
 function stepPlayer(f: Folk, dt: number, stuck: { t: number }): number {
   const p = ctl.player;
   let want = 0;
-  if (!ctl.frozen && readInput()) {
+  const push = ctl.frozen ? 0 : readInput();
+  if (push) {
     ctl.target = null;
     dir.copy(input);
-    want = SPEED;
+    want = SPEED * push;
   } else if (!ctl.frozen && ctl.target) {
     const left = arc(p.n, ctl.target.n);
     if (left < 0.08) {
