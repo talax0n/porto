@@ -17,7 +17,7 @@ export function Today({ quests, streak, onTravel }: TodayProps) {
   const [open, setOpen] = useState(false);
   const done = quests.filter((q) => q.done).length;
   return (
-    <section aria-label="Today's quests" className="pointer-events-auto flex flex-col items-end gap-2">
+    <section aria-label="Today's quests" className="pointer-events-auto relative flex flex-col items-end gap-2">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -32,7 +32,7 @@ export function Today({ quests, streak, onTravel }: TodayProps) {
       <div
         id="today-quests"
         className={cn(
-          "w-[236px] rounded-2xl border border-hq-line bg-white/90 px-3.5 py-3 backdrop-blur max-sm:w-[248px]",
+          "w-[236px] rounded-2xl border border-hq-line bg-white/90 px-3.5 py-3 backdrop-blur max-sm:absolute max-sm:top-full max-sm:right-0 max-sm:mt-2 max-sm:w-[248px]",
           !open && "max-sm:hidden",
         )}
       >
