@@ -16,6 +16,7 @@ import { MinimapView } from "./minimap";
 import { Ping } from "./ping";
 import { Waypoints } from "./waypoints";
 import { World } from "./world";
+import { Screens } from "./workplaces";
 
 interface SceneProps {
   state: GameState;
@@ -43,6 +44,7 @@ export default function Scene({ state, target, onTravel, onOpen, onNext, onSkip 
       <color attach="background" args={["#ffffff"]} />
       <hemisphereLight args={["#eaf2ff", "#f3e3c8", 1.1]} />
       <World near={near} inspecting={inspecting} visited={state.visited} />
+      <Screens />
       <Waypoints
         near={near}
         inspecting={inspecting}
