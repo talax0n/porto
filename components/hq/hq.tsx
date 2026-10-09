@@ -33,7 +33,7 @@ export function HQ() {
         <Dock visited={state.visited} current={current} onTravel={travel} />
       </div>
       {state.mode === "exploring" && (
-        <div className="absolute bottom-6 left-6 z-20">
+        <div className="absolute bottom-5 left-5 z-20">
           <Hint />
         </div>
       )}
