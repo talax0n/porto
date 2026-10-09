@@ -2,7 +2,8 @@ import { Color, type ColorRepresentation, Vector2, Vector3 } from "three";
 import { INTRO } from "@/data/onboarding";
 import { type DayLog, type Streak, extendStreak, freshDay, questRows } from "@/data/quests";
 import type { StationId } from "@/data/stations";
-import { VILLAGERS } from "./scene/folk";
+import type { Pulse } from "@/data/pulse";
+import { VILLAGERS, type Villager } from "./scene/folk";
 import type { Gesture } from "./scene/gesture";
 import { dirAt, flatten } from "./scene/planet";
 
@@ -157,7 +158,9 @@ export interface Controls {
   /** distance walked since the last 10Hz poll, drained into today's steps */
   walked: number;
   /** filled by the crowd once it spawns, so the map can chart villagers without importing the scene */
-  villagers: readonly { n: Vector3; id: number }[];
+  villagers: readonly Villager[];
+  /** the owner's agent activity, polled from /api/pulse */
+  pulse: Pulse;
   /** screen-edge arrows by STATIONS index; the HUD renders them and the scene moves them each frame */
   edges: (HTMLElement | null)[];
   /** the one move-command marker; a new click rewrites it in place */
@@ -192,6 +195,7 @@ export const ctl: Controls = {
   alt: DROP_IN,
   walked: 0,
   villagers: [],
+  pulse: { agents: [], lastSeen: 0, runsToday: 0 },
   edges: [],
   ping: { n: new Vector3(), t: -Infinity, kind: "move", color: new Color() },
   globe: { open: false, t: 0, dir: new Vector3(), up: new Vector3(), spin: new Vector2() },

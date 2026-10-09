@@ -119,9 +119,11 @@ interface Body {
 export type Folk = Body &
   (
     | { kind: "player" }
-    | { kind: "villager"; id: number; want: number; turn: number; timer: number }
+    | { kind: "villager"; id: number; want: number; turn: number; timer: number; goal: Vector3 | null }
     | { kind: "keeper"; station: StationId; post: Vector3; rest: Vector3 }
   );
+
+export type Villager = Extract<Folk, { kind: "villager" }>;
 
 const rest = (): Omit<Body, "n" | "heading" | "hat" | "hatColor" | "skin" | "shirt" | "foot"> => ({
   speed: 0,
@@ -184,6 +186,7 @@ export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
       want: 0,
       turn: 0,
       timer: rand() * 3,
+      goal: null,
       hat,
       hatColor: pick(hat === "ears" ? EARS : HAT),
       skin: pick(SKIN),
@@ -197,21 +200,30 @@ export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
 export const RADIUS = 0.26;
 export const WALK = 1.1;
 const SPACE = 0.75;
+/** how close to its goal a villager stops, in surface units */
+const ARRIVE = 0.6;
 
 const dir = new Vector3();
 const push = new Vector3();
 const tmp = new Vector3();
 
 /** Random-walk steering: wander, keep a little apart, give the player and props room. */
-export function stepVillager(f: Extract<Folk, { kind: "villager" }>, crowd: Folk[], dt: number, rand: () => number) {
-  f.timer -= dt;
-  if (f.timer < 0) {
-    const stroll = rand() < 0.7;
-    f.want = stroll ? WALK * (0.6 + rand() * 0.5) : 0;
-    f.turn = (rand() - 0.5) * (stroll ? 1.6 : 0);
-    f.timer = 1.5 + rand() * 3.5;
+export function stepVillager(f: Villager, crowd: Folk[], dt: number, rand: () => number) {
+  const goal = f.goal;
+  if (goal) {
+    toward(f.n, goal, dir);
+    f.want = arc(f.n, goal) > ARRIVE ? WALK * 1.3 : 0;
+    f.turn = 0;
+  } else {
+    f.timer -= dt;
+    if (f.timer < 0) {
+      const stroll = rand() < 0.7;
+      f.want = stroll ? WALK * (0.6 + rand() * 0.5) : 0;
+      f.turn = (rand() - 0.5) * (stroll ? 1.6 : 0);
+      f.timer = 1.5 + rand() * 3.5;
+    }
+    dir.copy(f.heading).applyAxisAngle(f.n, f.turn * dt);
   }
-  dir.copy(f.heading).applyAxisAngle(f.n, f.turn * dt);
   push.set(0, 0, 0);
   // all-pairs is fine for ~70 walkers; bucket by cell if the crowd grows into the hundreds
   for (const o of crowd) {
@@ -225,11 +237,11 @@ export function stepVillager(f: Extract<Folk, { kind: "villager" }>, crowd: Folk
   const crowded = push.lengthSq() > 0.04;
   dir.addScaledVector(push, 2.5);
   flatten(dir, f.n);
-  const pressed = steer(f.n, dir, RADIUS, null);
+  const pressed = steer(f.n, dir, RADIUS, goal);
   // turning the body is what makes the wander read as walking, not sliding
   f.heading.lerp(dir, Math.min(1, dt * 4));
   flatten(f.heading, f.n);
-  const want = crowded ? Math.max(f.want, WALK * 0.7) : f.want * (1 - pressed * 0.5);
+  const want = crowded && !goal ? Math.max(f.want, WALK * 0.7) : f.want * (1 - pressed * 0.5);
   f.speed += (want - f.speed) * Math.min(1, dt * 3);
   move(f, dt);
 }
