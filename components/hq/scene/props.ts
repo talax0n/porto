@@ -176,6 +176,8 @@ interface Prop {
 
 /** Laid out at import so walkers can steer around props before anything renders. */
 const PROPS: Prop[] = [];
+/** Where each lamp stands, for the glow and hit volume `lamps.tsx` adds over the baked post. */
+export const LAMPS: { n: Vector3; fwd: Vector3 }[] = [];
 const BLOBS: Decal[] = [];
 {
   const rand = rng(7);
@@ -193,6 +195,7 @@ const BLOBS: Decal[] = [];
     walk(p, dir, arc(a, b) * 0.55, dir);
     walk(p, new Vector3().crossVectors(p, dir), PATH_WIDTH / 2 + 0.3);
     add(lamp(), p, dir, 0.15);
+    LAMPS.push({ n: p, fwd: dir });
   }
 
   // a bench in each gap between the paths leaving the plaza, facing the fountain

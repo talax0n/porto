@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import {
+  type Intersection,
   type Object3D,
   type PerspectiveCamera,
   Quaternion,
@@ -13,6 +14,7 @@ import { STATIONS, type StationId } from "@/data/stations";
 import { ctl, setPing, setTarget } from "../game";
 import { keyLight } from "./daylight";
 import { RADIUS } from "./folk";
+import { lampHits, toggleLamp } from "./lamps";
 import { DENY, MOVE } from "./ping";
 import { LANDMARKS, R, blocked, flatten } from "./planet";
 
@@ -188,6 +190,14 @@ const ray = new Raycaster();
 const ndc = new Vector2();
 const planet = new Sphere(new Vector3(), R);
 const hit = new Vector3();
+const found: Intersection[] = [];
+
+/** The lamp under the ray, if nothing nearer (the ground at `ground`, or `limit`) is in front of it. */
+function lampUnder(ground: number, limit = Infinity): number {
+  found.length = 0;
+  const lamp = ray.intersectObjects(lampHits, false, found)[0];
+  return lamp && lamp.distance < Math.min(ground + 0.1, limit) ? (lamp.object.userData.lamp as number) : -1;
+}
 
 function nearestStation(p: Vector3): StationId {
   let best = STATIONS[0].id;
@@ -199,7 +209,7 @@ function nearestStation(p: Vector3): StationId {
   return best;
 }
 
-/** One pointer handler: a landmark first, otherwise the clicked point on the planet. */
+/** One pointer handler: a lamp or landmark first, otherwise the clicked point on the planet. */
 export function ClickToMove({ onTravel }: { onTravel: (id: StationId) => void }) {
   const gl = useThree((s) => s.gl);
   const camera = useThree((s) => s.camera);
@@ -207,20 +217,40 @@ export function ClickToMove({ onTravel }: { onTravel: (id: StationId) => void })
   useEffect(() => {
     const el = gl.domElement;
     let down: [number, number] | null = null;
+    let pending: PointerEvent | null = null;
+    const aimAt = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      return ray.ray.intersectSphere(planet, hit) ? ray.ray.origin.distanceTo(hit) : Infinity;
+    };
+    const onHover = () => {
+      const e = pending;
+      pending = null;
+      if (e) el.style.cursor = lampUnder(aimAt(e)) >= 0 ? "pointer" : "";
+    };
+    const onMove = (e: PointerEvent) => {
+      if (e.buttons || e.pointerType !== "mouse" || ctl.frozen) return;
+      if (!pending) requestAnimationFrame(onHover);
+      pending = e;
+    };
+    const onLeave = () => {
+      pending = null;
+      el.style.cursor = "";
+    };
     const onDown = (e: PointerEvent) => {
       down = [e.clientX, e.clientY];
     };
     const onUp = (e: PointerEvent) => {
       if (!down || ctl.frozen || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) return;
-      const r = el.getBoundingClientRect();
-      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-      ray.setFromCamera(ndc, camera);
+      const ground = aimAt(e);
       const tagged: Object3D[] = [];
       scene.traverse((o) => {
         if (o.userData.landmark) tagged.push(o);
       });
-      const ground = ray.ray.intersectSphere(planet, hit) ? ray.ray.origin.distanceTo(hit) : Infinity;
       const first = ray.intersectObjects(tagged, false)[0];
+      const lamp = lampUnder(ground, first?.distance);
+      if (lamp >= 0) return toggleLamp(lamp);
       if (first && first.distance < ground + 0.5) return onTravel(nearestStation(first.point.normalize()));
       if (ground < Infinity) {
         setTarget(hit, null);
@@ -231,9 +261,14 @@ export function ClickToMove({ onTravel }: { onTravel: (id: StationId) => void })
     };
     el.addEventListener("pointerdown", onDown);
     el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerleave", onLeave);
     return () => {
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerleave", onLeave);
+      el.style.cursor = "";
     };
   }, [gl, camera, scene, onTravel]);
   return null;

@@ -13,6 +13,7 @@ import { Daylight } from "./daylight";
 import { Globe } from "./globe";
 import { GithubGrid } from "./github-grid";
 import { IntroBubble } from "./intro";
+import { Lamps } from "./lamps";
 import type { Room } from "../use-room";
 import { MinimapView } from "./minimap";
 import { Ping } from "./ping";
@@ -47,6 +48,7 @@ export default function Scene({ state, target, room, onTravel, onOpen, onNext, o
       <PerformanceMonitor onChange={({ factor }) => setDpr(1 + 0.5 * factor)} />
       <Daylight />
       <World near={near} inspecting={inspecting} visited={state.visited} />
+      <Lamps />
       <Screens />
       <Rigs />
       <Waypoints
