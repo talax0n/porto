@@ -1,14 +1,17 @@
 import { BufferGeometry, Color, Matrix4, PlaneGeometry, SphereGeometry, Vector3 } from "three";
 import { MAX_AGENTS } from "@/data/pulse";
+import { type Emote, ROOM_CAP } from "@/data/room";
 import { STATIONS, type StationId } from "@/data/stations";
 import { ACCENT, TONE, ball, cyl, merge, paint, part, pill, ring, type Part } from "./clay";
 import { IDENTITY } from "./dioramas";
-import { type Gesture, type Pose, blankPose } from "./gesture";
+import { type Gesture, type Pose, blankPose, chasePose, onceOf, poseOf } from "./gesture";
 import { rng, scatter } from "./props";
 import { LANDMARKS, NORTH_POLE, OBSTACLES, R, arc, flatten, plinthLift, resolve, steer, toward, walk } from "./planet";
 
 /** one villager slot per agent the pulse can carry; a slot only shows while an agent holds it */
 export const VILLAGERS = MAX_AGENTS;
+/** one slot per other visitor a room can hold; you are the 24th */
+export const VISITORS = ROOM_CAP - 1;
 
 /**
  * Character space: feet on y=0, facing +Z, about one unit tall before `SCALE`.
@@ -139,9 +142,28 @@ export type Folk = Body &
         vy: number;
       }
     | { kind: "keeper"; station: StationId; post: Vector3; rest: Vector3 }
+    | {
+        /** another person on the site; the network writes `peer`..`emote`, the crowd glides toward them */
+        kind: "visitor";
+        slot: number;
+        peer: string | null;
+        look: number;
+        /** where the last update put them, and the way they face */
+        to: Vector3;
+        face: Vector3;
+        /** just arrived, or just re-seated: snap to `to` and re-dress from `look` */
+        fresh: boolean;
+        emote: Emote | null;
+        gest: Gesture;
+        clock: number;
+        pose: Pose;
+        lift: number;
+        shown: boolean;
+      }
   );
 
 export type Villager = Extract<Folk, { kind: "villager" }>;
+export type Visitor = Extract<Folk, { kind: "visitor" }>;
 
 /** A spot on the planet a villager settles into: where, facing which way, how high, doing what. */
 export interface Post {
@@ -229,7 +251,44 @@ export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
       foot: pick(SHOES),
     });
   }
+  for (let slot = 0; slot < VISITORS; slot++) {
+    const n = new Vector3(0, 1, 0);
+    folk.push({
+      kind: "visitor",
+      slot,
+      peer: null,
+      look: 0,
+      to: n.clone(),
+      face: new Vector3(0, 0, 1),
+      fresh: false,
+      emote: null,
+      gest: "rest",
+      clock: 0,
+      pose: blankPose(),
+      lift: 0,
+      shown: false,
+      n,
+      heading: new Vector3(0, 0, 1),
+      ...rest(),
+      ...lookOf(0),
+    });
+  }
   return folk;
+}
+
+/** A visitor's hat, skin, shirt and shoes, all from one uint32 seed so every browser dresses them alike. */
+export function lookOf(seed: number) {
+  const rand = rng(seed);
+  const pick = <T,>(xs: readonly T[]) => xs[Math.floor(rand() * xs.length)];
+  const roll = rand();
+  const hat: Hat | null = roll < 0.18 ? "ears" : roll < 0.4 ? "beanie" : roll < 0.62 ? "cap" : null;
+  return {
+    hat,
+    hatColor: pick(hat === "ears" ? EARS : HAT),
+    skin: pick(SKIN),
+    shirt: pick(CLOTHES),
+    foot: pick(SHOES),
+  };
 }
 
 export const RADIUS = 0.26;
@@ -270,7 +329,7 @@ function roam(f: Villager, crowd: Folk[], dt: number, rand: () => number) {
   push.set(0, 0, 0);
   // all-pairs is fine for ~70 walkers; bucket by cell if the crowd grows into the hundreds
   for (const o of crowd) {
-    if (o === f || (o.kind === "villager" && !o.shown)) continue;
+    if (o === f || ((o.kind === "villager" || o.kind === "visitor") && !o.shown)) continue;
     const c = f.n.dot(o.n);
     if (c < Math.cos(SPACE / R)) continue;
     const d = Math.acos(Math.min(1, c)) * R;
@@ -287,6 +346,43 @@ function roam(f: Villager, crowd: Folk[], dt: number, rand: () => number) {
   const want = crowded && !goal ? Math.max(f.want, WALK * 0.7) : f.want * (1 - pressed * 0.5);
   f.speed += (want - f.speed) * Math.min(1, dt * 3);
   move(f, dt);
+}
+
+/** a visitor further than this from their last update was moved, not walked: a reconnect, a long hidden tab */
+const TELEPORT = 8;
+/** how fast a visitor closes on their last reported spot, per second */
+const GLIDE = 7;
+const EMOTE_FOR = 2.5;
+
+/**
+ * Eases a remote visitor toward the last position and heading the room reported, and turns the ground
+ * they cover into the walk speed that drives the waddle. `motion` is 0 under reduced motion. Returns the turn rate.
+ */
+export function stepVisitor(f: Visitor, dt: number, motion: number, aim: Pose): number {
+  if (f.fresh || arc(f.n, f.to) > TELEPORT) {
+    f.n.copy(f.to);
+    f.heading.copy(f.face);
+    f.speed = 0;
+    f.fresh = false;
+  }
+  tmp.copy(f.n);
+  f.n.lerp(f.to, 1 - Math.exp(-dt * GLIDE)).normalize();
+  f.speed += ((dt > 0 ? Math.min(arc(tmp, f.n) / dt, WALK * 3.2) : 0) - f.speed) * Math.min(1, dt * 8);
+  // rotate rather than lerp: a lerp between opposite headings passes through zero
+  dir.crossVectors(f.heading, f.face);
+  const off = Math.atan2(dir.dot(f.n), f.heading.dot(f.face));
+  f.heading.applyAxisAngle(f.n, off * Math.min(1, dt * 10));
+  flatten(f.heading, f.n);
+  f.lift += (plinthLift(f.n) - f.lift) * Math.min(1, dt * 8);
+  if (f.emote) {
+    f.gest = f.emote;
+    f.clock = 0;
+    f.emote = null;
+  }
+  f.clock += dt;
+  if (f.gest !== "rest" && f.clock > (onceOf(f.gest) ?? EMOTE_FOR)) f.gest = "rest";
+  chasePose(f.pose, poseOf(f.gest, f.clock, motion, aim), Math.min(1, dt * 8));
+  return off * 0.3;
 }
 
 /** Slides onto a pinned spot and turns to face its way, then holds there; `pace` keeps a treadmill runner's legs going. */

@@ -3,7 +3,7 @@ import { INTRO } from "@/data/onboarding";
 import { type DayLog, type Streak, extendStreak, freshDay, questRows } from "@/data/quests";
 import type { StationId } from "@/data/stations";
 import type { Pulse } from "@/data/pulse";
-import type { Villager } from "./scene/folk";
+import type { Villager, Visitor } from "./scene/folk";
 import type { Gesture } from "./scene/gesture";
 import { dirAt, flatten } from "./scene/planet";
 
@@ -146,6 +146,8 @@ export interface Controls {
   walked: number;
   /** filled by the crowd once it spawns, so the map can chart villagers without importing the scene */
   villagers: readonly Villager[];
+  /** the room's other people, a fixed pool the crowd fills in once it spawns and `use-room` seats peers in */
+  visitors: readonly Visitor[];
   /** the owner's agent activity, polled from /api/pulse */
   pulse: Pulse;
   /** screen-edge arrows by STATIONS index; the HUD renders them and the scene moves them each frame */
@@ -181,6 +183,7 @@ export const ctl: Controls = {
   alt: DROP_IN,
   walked: 0,
   villagers: [],
+  visitors: [],
   pulse: { agents: [], lastSeen: 0, runsToday: 0 },
   edges: [],
   ping: { n: new Vector3(), t: -Infinity, kind: "move", color: new Color() },
