@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { BoxGeometry, Object3D, type InstancedMesh } from "three";
+import { BoxGeometry, Color, Object3D, type InstancedMesh } from "three";
 import { useContributions } from "../contributions";
 import { CLAY, TONE, paint } from "./clay";
 import { PLINTH_HEIGHT } from "./dioramas";
@@ -11,6 +11,7 @@ const PITCH = 0.165;
 const CELL = 0.14;
 // plain boxes: rounded ones cost 160 triangles a cell, 112 cells, for corners too small to see
 const geo = paint(new BoxGeometry(CELL, 1, CELL), TONE.white);
+const LEVELS = ["#e4ecd9", "#b9dca0", "#8cc77e", "#5fa964", "#3f8a52"].map((c) => new Color(c));
 
 /** The last 16 weeks as extruded clay cells, one instanced draw call. */
 export function GithubGrid() {
@@ -30,9 +31,11 @@ export function GithubGrid() {
         dummy.scale.set(1, h, 1);
         dummy.updateMatrix();
         mesh.setMatrixAt(w * DAYS + d, dummy.matrix);
+        mesh.setColorAt(w * DAYS + d, LEVELS[Math.min(level, LEVELS.length - 1)]);
       }
     }
     mesh.instanceMatrix.needsUpdate = true;
+    mesh.instanceColor!.needsUpdate = true;
   }, [load]);
 
   return (

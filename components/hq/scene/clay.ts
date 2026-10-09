@@ -22,7 +22,25 @@ export const TONE = {
   white: "#fbfaf7",
   light: "#ebe8e2",
   mid: "#d3cfc7",
-  dark: "#2c2c2e",
+} as const;
+
+/** World colours: soft, matte plasticine, never neon. Station identities live in dioramas.ts. */
+export const PAL = {
+  grass: "#8cc673",
+  meadow: "#b5d883",
+  sand: "#ecd6ab",
+  cobble: "#e2cfb0",
+  water: "#8cc6e6",
+  wood: "#a8714c",
+  woodDark: "#7a5640",
+  trunk: "#94664a",
+  terracotta: "#d9805f",
+  slate: "#3b4250",
+  lampPost: "#3d5a4c",
+  bulb: "#ffe2a0",
+  leaf: ["#8cc27e", "#6aa877", "#a9d38c", "#5c9a6c", "#7fb98a"],
+  autumn: ["#f4b98f", "#ee9a86"],
+  flower: ["#f6a6b8", "#ffffff", "#f7d26e", "#b9a3e6", "#f29a83"],
 } as const;
 
 /** The one clay material. Per-part tone lives in vertex colours so every static mesh can share it. */

@@ -27,7 +27,7 @@ const view = { x: 0, y: 0, dist: DIST };
  */
 export function CameraRig() {
   const gl = useThree((s) => s.gl);
-  const light = useMemo(() => new DirectionalLight("#ffffff", 2.3), []);
+  const light = useMemo(() => new DirectionalLight("#fff3e2", 2.1), []);
 
   useEffect(() => {
     const el = gl.domElement;

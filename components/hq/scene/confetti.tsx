@@ -2,14 +2,14 @@ import { useEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Color, Object3D, Vector3, type InstancedMesh } from "three";
 import { ctl } from "../game";
-import { ACCENT, CLAY, TONE, box, paint } from "./clay";
+import { ACCENT, CLAY, box, paint } from "./clay";
 import { R } from "./planet";
 
 const COUNT = 140;
 const GRAVITY = 9;
 const geo = paint(box(0.1, 0.1, 0.1, 0.03).clone(), "#ffffff");
 const dummy = new Object3D();
-const palette = [new Color("#ffffff"), new Color(ACCENT), new Color(TONE.light), new Color(ACCENT)];
+const palette = [ACCENT, "#ffffff", ACCENT, "#f5d06a", ACCENT, "#f4a3c0", ACCENT, "#8fcf9a"].map((c) => new Color(c));
 
 interface Bit {
   /** launch velocity in the player's frame: right, up along the normal, forward */

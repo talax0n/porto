@@ -29,8 +29,8 @@ export default function Scene({ state, onTravel, onOpen }: SceneProps) {
       style={{ position: "absolute", inset: 0, touchAction: "none" }}
     >
       <PerformanceMonitor onChange={({ factor }) => setDpr(1 + 0.5 * factor)} />
-      <color attach="background" args={["#f3f2ef"]} />
-      <ambientLight intensity={0.75} />
+      <color attach="background" args={["#eef1ee"]} />
+      <hemisphereLight args={["#eaf2ff", "#f3e3c8", 1.1]} />
       <World near={near} inspecting={state.mode === "inspecting" ? state.station : null} visited={state.visited} />
       <GithubGrid />
       <Crowd met={state.met} near={near} onOpen={onOpen} />
