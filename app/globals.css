@@ -32,3 +32,15 @@ body {
   outline: 2px solid #2b3cff;
   outline-offset: 2px;
 }
+
+@keyframes twinkle {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .star {
+    animation: twinkle var(--d) ease-in-out infinite;
+  }
+}

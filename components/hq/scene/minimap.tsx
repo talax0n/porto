@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Hud, OrthographicCamera, useFBO } from "@react-three/drei";
-import { type Mesh, OrthographicCamera as Ortho } from "three";
+import { Color, type Mesh, OrthographicCamera as Ortho } from "three";
 import { ctl } from "../game";
 import { MINIMAP_VIEW, R } from "./planet";
+import { newLook, skyNow } from "./sky";
 
 /** Markers, arrows and confetti live on this layer, which only the main camera renders. */
 export const OVERLAY = 1;
 const SIZE = 256;
 /** the planet below is redrawn every this many frames; the disc showing it costs one draw call */
 const EVERY = 4;
+const look = newLook();
+const clear = new Color();
 
 /**
  * The live minimap: the scene seen straight down over the player, camera-forward up, rendered
@@ -45,9 +48,14 @@ export function MinimapView() {
     eye.up.copy(ctl.north);
     eye.lookAt(0, 0, 0);
     eye.updateMatrixWorld();
+    // the canvas is transparent over the DOM sky, so the target needs a backdrop of its own
+    const alpha = gl.getClearAlpha();
+    gl.getClearColor(clear);
+    gl.setClearColor(skyNow(look).bottom, 1);
     gl.setRenderTarget(fbo);
     gl.render(scene, eye);
     gl.setRenderTarget(null);
+    gl.setClearColor(clear, alpha);
   });
 
   return (

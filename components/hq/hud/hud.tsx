@@ -7,10 +7,10 @@ import { Ps } from "./ps";
 export function Wordmark() {
   return (
     <div className="relative">
-      <h1 className="font-display text-2xl font-extrabold leading-none tracking-tight text-hq-ink sm:text-3xl">
+      <h1 className="font-display text-2xl font-extrabold leading-none tracking-tight text-(--sky-ink,#111111) sm:text-3xl">
         {PROFILE.name}
       </h1>
-      <div className="mt-1.5 text-[11px] tracking-[0.12em] text-hq-mute uppercase">
+      <div className="mt-1.5 text-[11px] tracking-[0.12em] text-(--sky-mute,#6b6b6b) uppercase">
         {PROFILE.role}
         <Ps />
       </div>
@@ -78,7 +78,7 @@ const HINTS: [string, string][] = [
 
 export function Hint() {
   return (
-    <ul className="flex flex-col gap-1 text-[10px] font-medium text-hq-ink [text-shadow:0_0_4px_rgba(255,255,255,0.9)] max-sm:hidden pointer-coarse:hidden">
+    <ul className="flex flex-col gap-1 text-[10px] font-medium text-(--sky-ink,#111111) [text-shadow:0_0_4px_var(--sky-bottom,#ffffff)] max-sm:hidden pointer-coarse:hidden">
       {HINTS.map(([k, v]) => (
         <li key={k} className="flex items-center gap-1.5">
           <kbd className="min-w-10 rounded-md border border-hq-line bg-white/90 px-1 py-px text-center font-sans text-hq-ink shadow-sm backdrop-blur [text-shadow:none]">{k}</kbd>

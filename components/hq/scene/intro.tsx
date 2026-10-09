@@ -104,7 +104,7 @@ export function IntroControls({ step, onNext, onSkip, bar, className }: IntroBub
             key={i}
             className={cn(
               "h-1.5 rounded-full transition-[width,background-color] duration-300",
-              i === step ? "w-4 bg-hq-accent" : "w-1.5 bg-hq-ink/15",
+              i === step ? "w-4 bg-hq-accent" : "w-1.5 bg-(--sky-ink,#111111) opacity-20",
             )}
           />
         ))}
@@ -113,7 +113,7 @@ export function IntroControls({ step, onNext, onSkip, bar, className }: IntroBub
         type="button"
         onClick={onSkip}
         className={cn(
-          "rounded-full px-2 py-1.5 text-[11px] text-hq-mute transition-colors hover:text-hq-ink",
+          "rounded-full px-2 py-1.5 text-[11px] text-(--sky-mute,#6b6b6b) transition-colors hover:text-(--sky-ink,#111111)",
           bar && "min-h-12 px-4 text-[14px]",
         )}
       >

@@ -9,6 +9,7 @@ import { CameraRig, ClickToMove } from "./camera";
 import { Agents } from "./agents";
 import { Confetti } from "./confetti";
 import { Crowd } from "./crowd";
+import { Daylight } from "./daylight";
 import { Globe } from "./globe";
 import { GithubGrid } from "./github-grid";
 import { IntroBubble } from "./intro";
@@ -35,14 +36,13 @@ export default function Scene({ state, target, onTravel, onOpen, onNext, onSkip 
     <Canvas
       flat
       dpr={dpr}
-      gl={{ antialias: true, powerPreference: "high-performance" }}
+      gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       camera={{ fov: 30, near: 0.5, far: 160, position: [0, 30, 20] }}
       // clip, not hidden: focusing a button in an <Html> bubble would otherwise scroll the whole canvas away
       style={{ position: "absolute", inset: 0, touchAction: "none", overflow: "clip" }}
     >
       <PerformanceMonitor onChange={({ factor }) => setDpr(1 + 0.5 * factor)} />
-      <color attach="background" args={["#ffffff"]} />
-      <hemisphereLight args={["#eaf2ff", "#f3e3c8", 1.1]} />
+      <Daylight />
       <World near={near} inspecting={inspecting} visited={state.visited} />
       <Screens />
       <Waypoints

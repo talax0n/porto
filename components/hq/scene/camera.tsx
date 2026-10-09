@@ -1,7 +1,6 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import {
-  DirectionalLight,
   type Object3D,
   type PerspectiveCamera,
   Quaternion,
@@ -12,6 +11,7 @@ import {
 } from "three";
 import { STATIONS, type StationId } from "@/data/stations";
 import { ctl, setPing, setTarget } from "../game";
+import { keyLight } from "./daylight";
 import { RADIUS } from "./folk";
 import { DENY, MOVE } from "./ping";
 import { LANDMARKS, R, blocked, flatten } from "./planet";
@@ -68,7 +68,6 @@ function globeDist(cam: PerspectiveCamera) {
  */
 export function CameraRig() {
   const gl = useThree((s) => s.gl);
-  const light = useMemo(() => new DirectionalLight("#fff3e2", 2.1), []);
 
   useEffect(() => {
     const el = gl.domElement;
@@ -178,11 +177,11 @@ export function CameraRig() {
     cam.setViewOffset(size.width, size.height, view.x, view.y, size.width, size.height);
 
     // key light over the camera's left shoulder, wherever on the planet that is
-    light.position.copy(camera.position).addScaledVector(aim, 8).addScaledVector(side.crossVectors(north, aim), -6);
-    light.target.position.copy(lookAt);
-    light.target.updateMatrixWorld();
+    keyLight.position.copy(camera.position).addScaledVector(aim, 8).addScaledVector(side.crossVectors(north, aim), -6);
+    keyLight.target.position.copy(lookAt);
+    keyLight.target.updateMatrixWorld();
   });
-  return <primitive object={light} />;
+  return <primitive object={keyLight} />;
 }
 
 const ray = new Raycaster();

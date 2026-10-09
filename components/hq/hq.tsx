@@ -5,6 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Dock, Hint, Replay, Toast, Wordmark } from "./hud/hud";
 import { EdgeArrows, MapChrome, Minimap } from "./hud/map";
+import { Sky } from "./sky";
 import { Today } from "./hud/today";
 import { Panel } from "./hud/panel";
 import { Stick } from "./hud/stick";
@@ -14,7 +15,7 @@ import { useHQ } from "./use-hq";
 // The DOM shell paints first; three.js loads behind a plain placeholder.
 const Scene = dynamic(() => import("./scene/scene"), {
   ssr: false,
-  loading: () => <div className="absolute inset-0 bg-white" />,
+  loading: () => <div className="absolute inset-0" />,
 });
 
 export function HQ() {
@@ -28,7 +29,8 @@ export function HQ() {
   const map = state.mode === "map";
 
   return (
-    <main className="relative h-dvh w-full overflow-hidden bg-white">
+    <main className="relative h-dvh w-full overflow-hidden">
+      <Sky />
       <Scene state={state} target={target} onTravel={travel} onOpen={open} onNext={next} onSkip={skip} />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between p-4 sm:p-6">
