@@ -60,6 +60,24 @@ for (let i = 0; i < 10; i++) b.ws.send(JSON.stringify({ t: "say", text: `spam ${
 await new Promise((r) => setTimeout(r, 400));
 assert.ok(a.got.filter((m) => m.t === "say").length <= 3, "token bucket held the flood");
 
+const send = (w: WebSocket, m: Frame) => w.send(JSON.stringify(m));
+send(b.ws, { t: "name", name: "Bee https://x.io" });
+assert.deepEqual(await a.next("name"), { t: "name", id: helloB.you, name: "Bee" }, "peer sees the cleaned name");
+assert.deepEqual(await b.next("name"), { t: "name", id: helloB.you, name: "Bee" }, "sender gets the echo");
+send(b.ws, { t: "name", name: "Bee Two" });
+assert.equal(await a.next("name", 600).catch(() => null), null, "second rename inside 3s is dropped");
+await new Promise((r) => setTimeout(r, 3100));
+send(b.ws, { t: "name", name: "fuck" });
+assert.equal(await a.next("name", 600).catch(() => null), null, "blocked name ignored");
+send(b.ws, { t: "name", name: "Bee Two" });
+assert.equal((await a.next("name")).name, "Bee Two");
+const late = open();
+await late.ready;
+await late.next("hello");
+const lateName = await late.next("name");
+assert.deepEqual([lateName.id, lateName.name], [helloB.you, "Bee Two"], "a late joiner is told the current names");
+late.ws.close();
+
 b.ws.close();
 assert.equal((await a.next("leave")).id, helloB.you);
 
