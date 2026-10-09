@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Dock, Hint, Quest, Replay, Toast, Wordmark } from "./hud/hud";
-import { FullMap, Minimap } from "./hud/map";
+import { EdgeArrows, FullMap, Minimap } from "./hud/map";
 import { Today } from "./hud/today";
 import { Panel } from "./hud/panel";
 import { useHQ } from "./use-hq";
@@ -26,11 +26,14 @@ export function HQ() {
 
   return (
     <main className="relative h-dvh w-full overflow-hidden bg-white">
-      <Scene state={state} onTravel={travel} onOpen={open} onNext={next} onSkip={skip} />
+      <Scene state={state} target={target} onTravel={travel} onOpen={open} onNext={next} onSkip={skip} />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-4 sm:p-6">
-        <Wordmark />
+        <div data-hud>
+          <Wordmark />
+        </div>
         <div
+          data-hud
           className={cn("flex flex-col items-end gap-3 transition-opacity duration-500", intro && "opacity-0")}
           aria-hidden={intro}
         >
@@ -44,19 +47,20 @@ export function HQ() {
       </div>
 
       {!intro && (
-        <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 sm:bottom-5">
+        <div data-hud className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 sm:bottom-5">
           <Dock visited={state.visited} current={current} onTravel={travel} />
         </div>
       )}
       {state.mode === "exploring" && (
-        <div className="absolute bottom-5 left-5 z-20 flex items-end gap-1.5 max-sm:bottom-auto max-sm:left-3 max-sm:top-24">
+        <div data-hud className="absolute bottom-5 left-5 z-20 flex items-end gap-1.5 max-sm:bottom-auto max-sm:left-3 max-sm:top-24">
           <Hint />
           <Replay onReplay={replay} />
         </div>
       )}
 
+      {state.mode === "exploring" && <EdgeArrows target={target} onTravel={travel} />}
       {state.mode === "exploring" && (
-        <div className="absolute right-5 bottom-5 z-20 max-sm:right-3 max-sm:bottom-16">
+        <div data-hud className="absolute right-5 bottom-5 z-20 max-sm:right-3 max-sm:bottom-16">
           <Minimap visited={state.visited} met={state.met} target={target} onOpen={toggleMap} />
         </div>
       )}

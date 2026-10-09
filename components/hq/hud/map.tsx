@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { Check, X } from "lucide-react";
+import { Check, Navigation2, X } from "lucide-react";
 import { Vector3 } from "three";
 import { STATIONS, type StationId } from "@/data/stations";
 import { cn } from "@/lib/utils";
@@ -20,9 +20,14 @@ interface Charted {
 /** How much of the planet the corner radar shows, in radians from the player; the full map shows all of it. */
 const RADAR = 1.6;
 const FULL = Math.PI;
+/**
+ * The full map rescales each equidistant radius to equal-area (2·sin(d/2)). The landmarks all sit
+ * within ~1.4 rad of anyone, and a linear disc out to the antipode piles their labels in the middle.
+ */
+const spread = (d: number, range: number) => (range === FULL ? Math.sin(d / 2) / Math.sin(FULL / 2) : d / range);
 const REDRAW_MS = 66;
-/** percent of the full map per radian; the 6px canvas inset is about 1.2% of a ~500px card */
-const LABEL_SCALE = 48.8 / FULL;
+/** the full map's rim in percent of its width; the 6px canvas inset is about 1.2% of a ~500px card */
+const LABEL_SCALE = 48.8;
 const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefers-reduced-motion: reduce)");
 const at = { x: 0, y: 0 };
 const right = new Vector3();
@@ -39,7 +44,6 @@ function draw(canvas: HTMLCanvasElement, range: number, { visited, met, target }
 
   const c = size / 2;
   const r = c - (big ? 6 : 3);
-  const k = r / range;
   const { n, heading } = ctl.player;
   const up = ctl.north;
   /** projects a unit position; false when it lies past the rim, after pinning it there */
@@ -47,7 +51,7 @@ function draw(canvas: HTMLCanvasElement, range: number, { visited, met, target }
     mapXY(n, up, p, at);
     const d = Math.hypot(at.x, at.y);
     const inside = d <= range;
-    const s = inside ? k : r / d;
+    const s = d > 0 ? (r * Math.min(1, spread(d, range))) / d : 0;
     at.x = c + at.x * s;
     at.y = c - at.y * s;
     return inside;
@@ -69,7 +73,7 @@ function draw(canvas: HTMLCanvasElement, range: number, { visited, met, target }
 
   if (place(NORTH_POLE)) {
     ctx.beginPath();
-    ctx.arc(at.x, at.y, Math.max(3, (PLAZA / R) * k), 0, Math.PI * 2);
+    ctx.arc(at.x, at.y, Math.max(3, r * spread(PLAZA / R, range)), 0, Math.PI * 2);
     ctx.fillStyle = PAL.sand;
     ctx.fill();
   }
@@ -182,7 +186,9 @@ export function FullMap({ onTravel, onClose, ...charted }: FullMapProps) {
     () =>
       STATIONS.map((s) => {
         const { x, y } = mapXY(ctl.player.n, ctl.north, LANDMARKS[s.id].n, { x: 0, y: 0 });
-        return { s, left: 50 + x * LABEL_SCALE, top: 50 - y * LABEL_SCALE };
+        const d = Math.hypot(x, y);
+        const k = d > 0 ? (LABEL_SCALE * spread(d, FULL)) / d : 0;
+        return { s, left: 50 + x * k, top: 50 - y * k };
       }),
     [],
   );
@@ -236,5 +242,37 @@ export function FullMap({ onTravel, onClose, ...charted }: FullMapProps) {
         </div>
       </section>
     </motion.div>
+  );
+}
+
+/** Screen-edge pointers to places out of view. The scene picks, places and turns them every frame. */
+export function EdgeArrows({ target, onTravel }: { target: StationId | null; onTravel: (id: StationId) => void }) {
+  return (
+    <div aria-label="Places out of view" role="group">
+      {STATIONS.map((s, i) => (
+        <button
+          key={s.id}
+          type="button"
+          ref={(el) => {
+            ctl.edges[i] = el;
+            return () => {
+              ctl.edges[i] = null;
+            };
+          }}
+          onClick={() => onTravel(s.id)}
+          aria-label={`Go to ${s.label}`}
+          style={{ visibility: "hidden" }}
+          className={cn(
+            "absolute top-0 left-0 z-10 flex items-center gap-1.5 rounded-full border bg-white/95 py-1 pr-2.5 pl-1 text-[11px] max-sm:size-11 max-sm:justify-center max-sm:p-0 font-medium text-hq-ink shadow-[0_8px_20px_-12px_rgba(0,0,0,0.35)] backdrop-blur transition-colors hover:border-hq-accent pointer-coarse:min-h-11",
+            s.id === target ? "border-hq-accent" : "border-hq-line",
+          )}
+        >
+          <span className="grid size-6 place-items-center rounded-full text-white" style={{ background: IDENTITY[s.id].top }}>
+            <Navigation2 className="size-3.5 fill-current" aria-hidden />
+          </span>
+          <span className="max-sm:sr-only">{s.label}</span>
+        </button>
+      ))}
+    </div>
   );
 }

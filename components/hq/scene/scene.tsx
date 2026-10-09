@@ -10,19 +10,22 @@ import { Confetti } from "./confetti";
 import { Crowd } from "./crowd";
 import { GithubGrid } from "./github-grid";
 import { IntroBubble } from "./intro";
+import { Waypoints } from "./waypoints";
 import { World } from "./world";
 
 interface SceneProps {
   state: GameState;
+  target: StationId | null;
   onTravel: (id: StationId) => void;
   onOpen: (id: StationId) => void;
   onNext: () => void;
   onSkip: () => void;
 }
 
-export default function Scene({ state, onTravel, onOpen, onNext, onSkip }: SceneProps) {
+export default function Scene({ state, target, onTravel, onOpen, onNext, onSkip }: SceneProps) {
   const [dpr, setDpr] = useState(1.5);
   const near = state.mode === "exploring" ? state.near : null;
+  const inspecting = state.mode === "inspecting" ? state.station : null;
   return (
     <Canvas
       flat
@@ -35,7 +38,14 @@ export default function Scene({ state, onTravel, onOpen, onNext, onSkip }: Scene
       <PerformanceMonitor onChange={({ factor }) => setDpr(1 + 0.5 * factor)} />
       <color attach="background" args={["#ffffff"]} />
       <hemisphereLight args={["#eaf2ff", "#f3e3c8", 1.1]} />
-      <World near={near} inspecting={state.mode === "inspecting" ? state.station : null} visited={state.visited} />
+      <World near={near} inspecting={inspecting} visited={state.visited} />
+      <Waypoints
+        near={near}
+        inspecting={inspecting}
+        visited={state.visited}
+        target={target}
+        show={state.mode !== "onboarding" && state.mode !== "landing"}
+      />
       <GithubGrid />
       <Crowd met={state.met} near={near} onOpen={onOpen} />
       {state.mode === "onboarding" && <IntroBubble step={state.step} onNext={onNext} onSkip={onSkip} />}

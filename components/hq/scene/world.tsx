@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
-import { Color, type InstancedMesh, Matrix4, MeshBasicMaterial, type Object3D, Vector3 } from "three";
+import { Color, type InstancedMesh, Matrix4, MeshBasicMaterial, type Object3D } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { STATIONS, type Station, type StationId } from "@/data/stations";
+import { STATIONS, type StationId } from "@/data/stations";
 import { ctl } from "../game";
 import { ACCENT, CLAY, TONE, box, paint } from "./clay";
 import { PLINTH_HEIGHT, buildStation } from "./dioramas";
-import { LANDMARKS, R } from "./planet";
+import { LANDMARKS } from "./planet";
 import { blobTexture, buildDecals, buildGround, softSquare } from "./props";
 
 /** Static props never move again, so skip their per-frame matrix work. */
@@ -25,8 +24,6 @@ const tileAt = new Matrix4().makeTranslation(1.05, PLINTH_HEIGHT + 0.03, 1.05);
 const m = new Matrix4();
 const scale = new Matrix4();
 const tint = new Color();
-const camDir = new Vector3();
-const ndc = new Vector3();
 
 interface TileState {
   lit: number;
@@ -56,7 +53,6 @@ export function World({ near, inspecting, visited }: WorldProps) {
   );
   const tiles = useRef<InstancedMesh>(null);
   const tileState = useRef<TileState[]>(STATIONS.map(() => ({ lit: 0, pop: POP })));
-  const tags = useRef<(HTMLDivElement | null)[]>([]);
   const seen = useRef(new Set<StationId>());
   const live = useRef({ near, inspecting });
 
@@ -73,13 +69,12 @@ export function World({ near, inspecting, visited }: WorldProps) {
     });
   }, [visited]);
 
-  useFrame(({ camera }, rawDt) => {
+  useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
     const k = 1 - Math.exp(-dt * 6);
     const { near: nearId, inspecting: focus } = live.current;
     const cel = ctl.celebrate;
     if (cel.active) cel.t += dt;
-    camDir.copy(camera.position).normalize();
     const mesh = tiles.current;
     for (let i = 0; i < STATIONS.length; i++) {
       const id = STATIONS[i].id;
@@ -96,15 +91,6 @@ export function World({ near, inspecting, visited }: WorldProps) {
         m.multiplyMatrices(LANDMARKS[id].frame, tileAt).multiply(scale.makeScale(sx, 1 + 0.5 * (bump + pulse), sx));
         mesh.setMatrixAt(i, m);
         mesh.setColorAt(i, tint.lerpColors(baseTile, accent, t.lit));
-      }
-      // hide tags on the far side of the planet; while a panel is open only the open station keeps one
-      const el = tags.current[i];
-      if (el) {
-        const { n } = LANDMARKS[id];
-        ndc.copy(n).multiplyScalar(R + TAG_Y).project(camera);
-        // the top and bottom bands belong to the HUD
-        const clear = n.dot(camDir) > 0.5 && ndc.y > -0.72 && ndc.y < 0.72 && Math.abs(ndc.x) < 0.92;
-        el.style.opacity = clear && (!focus || id === focus) ? "1" : "0";
       }
     }
     if (mesh) {
@@ -126,43 +112,6 @@ export function World({ near, inspecting, visited }: WorldProps) {
         frustumCulled={false}
         userData={{ landmark: true }}
       />
-      {STATIONS.map((s, i) => (
-        <Tag
-          key={s.id}
-          station={s}
-          near={near === s.id}
-          lit={visited.has(s.id)}
-          bind={(el) => {
-            tags.current[i] = el;
-          }}
-        />
-      ))}
     </>
-  );
-}
-
-const TAG_Y = 1.9;
-
-interface TagProps {
-  station: Station;
-  near: boolean;
-  lit: boolean;
-  bind: (el: HTMLDivElement | null) => void;
-}
-
-function Tag({ station, near, lit, bind }: TagProps) {
-  const at = useMemo(() => LANDMARKS[station.id].n.clone().multiplyScalar(R + TAG_Y), [station.id]);
-  return (
-    <Html position={at} center zIndexRange={[10, 0]} style={{ pointerEvents: "none" }}>
-      <div
-        ref={bind}
-        className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border bg-white px-2.5 py-1 text-[11px] font-medium text-black transition-[transform,border-color,opacity] max-sm:px-2 max-sm:text-[10px] ${
-          near ? "scale-110 border-hq-accent" : "border-hq-line"
-        }`}
-      >
-        {lit && <span className="size-1.5 rounded-full bg-hq-accent" />}
-        {station.label}
-      </div>
-    </Html>
   );
 }

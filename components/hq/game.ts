@@ -150,6 +150,8 @@ export interface Controls {
   walked: number;
   /** filled by the crowd once it spawns, so the map can chart villagers without importing the scene */
   villagers: readonly { n: Vector3; id: number }[];
+  /** screen-edge arrows by STATIONS index; the HUD renders them and the scene moves them each frame */
+  edges: (HTMLElement | null)[];
 }
 
 const spawn = dirAt(8, 90);
@@ -171,6 +173,7 @@ export const ctl: Controls = {
   alt: DROP_IN,
   walked: 0,
   villagers: [],
+  edges: [],
 };
 
 export function setTarget(n: Vector3, station: StationId | null) {
