@@ -6,6 +6,7 @@ import { PerformanceMonitor } from "@react-three/drei";
 import type { StationId } from "@/data/stations";
 import type { GameState } from "../game";
 import { CameraRig, ClickToMove } from "./camera";
+import { Agents } from "./agents";
 import { Confetti } from "./confetti";
 import { Crowd } from "./crowd";
 import { Globe } from "./globe";
@@ -51,6 +52,7 @@ export default function Scene({ state, target, onTravel, onOpen, onNext, onSkip 
       />
       <GithubGrid />
       <Crowd met={state.met} near={near} onOpen={onOpen} />
+      <Agents />
       {state.mode === "map" && <Globe visited={state.visited} target={target} onTravel={onTravel} />}
       {state.mode === "onboarding" && <IntroBubble step={state.step} onNext={onNext} onSkip={onSkip} />}
       <Ping />
