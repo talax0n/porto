@@ -1,0 +1,79 @@
+// Drives a running `npm run realtime:dev` with raw sockets: node scripts/room.smoke.ts [ws://127.0.0.1:8787]
+import assert from "node:assert/strict";
+import { ROOM_CAP } from "../data/room.ts";
+
+const base = process.argv[2] ?? "ws://127.0.0.1:8787";
+const room = `room-${Math.floor(Math.random() * 10)}`;
+const origin = "http://localhost:3000";
+type Frame = Record<string, unknown>;
+
+function open(headers: Record<string, string> = { Origin: origin }) {
+  // undici's WebSocket takes request headers in its init dictionary, which the DOM typings lack
+  const ws = new WebSocket(`${base}/room/${room}`, { headers } as never);
+  const got: Frame[] = [];
+  ws.onmessage = (e) => got.push(JSON.parse(String(e.data)));
+  const ready = new Promise<void>((res, rej) => {
+    ws.onopen = () => res();
+    ws.onerror = () => rej(new Error("socket error"));
+  });
+  const next = async (t: string, ms = 2000) => {
+    for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 20)))
+      if (got.some((m) => m.t === t)) return got.splice(0, got.findIndex((m) => m.t === t) + 1).at(-1)!;
+    throw new Error(`no ${t}; got ${JSON.stringify(got)}`);
+  };
+  return { ws, got, ready, next };
+}
+
+const a = open();
+await a.ready;
+const helloA = await a.next("hello");
+const b = open();
+await b.ready;
+const helloB = await b.next("hello");
+assert.deepEqual(helloB.peers, [], "A hasn't moved, so B sees nobody");
+assert.notEqual(helloA.you, helloB.you);
+
+const n = [0, 1, 0];
+const h = [0, 0, 1];
+a.ws.send(JSON.stringify({ t: "move", n, h }));
+const join = await b.next("join");
+assert.deepEqual((join.peer as Frame).n, n);
+assert.equal((join.peer as Frame).id, helloA.you, "server stamped A's id");
+
+await new Promise((r) => setTimeout(r, 100));
+a.ws.send(JSON.stringify({ t: "move", n: [0.6, 0.8, 0], h }));
+assert.deepEqual((await b.next("move")).n, [0.6, 0.8, 0]);
+
+a.ws.send(JSON.stringify({ t: "say", text: "see https://evil.io/x now", id: helloB.you }));
+a.ws.send(JSON.stringify({ t: "say", text: "see https://evil.io/x now" }));
+assert.equal((await b.next("say")).text, "see now", "URL stripped");
+assert.equal((await b.next("say").catch(() => null)), null, "a frame with an id field is dropped");
+b.ws.send(JSON.stringify({ t: "move", n, h }));
+await a.next("join");
+b.ws.send(JSON.stringify({ t: "preset", p: 1 }));
+const preset = await a.next("say");
+assert.deepEqual([preset.id, preset.text], [helloB.you, "nice portfolio"]);
+b.ws.send(JSON.stringify({ t: "emote", e: "wave" }));
+assert.equal((await a.next("emote")).e, "wave");
+
+for (let i = 0; i < 10; i++) b.ws.send(JSON.stringify({ t: "say", text: `spam ${i}` }));
+await new Promise((r) => setTimeout(r, 400));
+assert.ok(a.got.filter((m) => m.t === "say").length <= 3, "token bucket held the flood");
+
+b.ws.close();
+assert.equal((await a.next("leave")).id, helloB.you);
+
+const bad = open({ Origin: "https://evil.example" });
+await assert.rejects(bad.ready, "foreign origin refused");
+const none = open({});
+await assert.rejects(none.ready, "no origin refused");
+
+const rest = Array.from({ length: ROOM_CAP - 1 }, () => open());
+await Promise.all(rest.map((r) => r.ready));
+for (const r of rest) await r.next("hello");
+const over = open();
+await over.ready;
+await over.next("full");
+console.log(`room.smoke ok (${room})`);
+for (const s of [a, ...rest, over]) s.ws.close();
+process.exit(0);
