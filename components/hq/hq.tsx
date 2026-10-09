@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Dock, Hint, Quest, Replay, Toast, Wordmark } from "./hud/hud";
+import { Dock, Hint, Replay, Toast, Wordmark } from "./hud/hud";
 import { EdgeArrows, MapChrome, Minimap } from "./hud/map";
 import { Today } from "./hud/today";
 import { Panel } from "./hud/panel";
@@ -45,7 +45,6 @@ export function HQ() {
           )}
           aria-hidden={intro}
         >
-          <Quest visited={state.visited} met={state.met} />
           {quests && state.mode === "exploring" && <Today quests={quests} streak={streak} onTravel={travel} />}
         </div>
       </div>
@@ -75,7 +74,7 @@ export function HQ() {
         </div>
       )}
       {state.mode === "exploring" && (
-        <div data-hud className="absolute bottom-5 left-5 z-20 flex items-end gap-1.5 max-sm:bottom-auto max-sm:left-3 max-sm:top-24">
+        <div data-hud className="absolute bottom-20 left-5 z-20 flex items-end gap-1.5 max-sm:bottom-auto max-sm:left-3 max-sm:top-24 sm:pointer-coarse:bottom-5">
           <Hint />
           <Replay onReplay={replay} />
         </div>
