@@ -370,7 +370,10 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
       const shade = 1.15 * (1 - Math.min(0.45, lift * 0.13));
       local.compose(v.set(0, 0.02, 0), q.identity(), s.set(shade, 1, shade));
       blob.setMatrixAt(i, local.premultiply(base));
-      if (f.kind === "player" && halo.current) frameAt(f.n, f.heading, halo.current.matrix, 0.04);
+      if (f.kind === "player" && halo.current) {
+        halo.current.visible = ctl.intro === "ground";
+        frameAt(f.n, f.heading, halo.current.matrix, 0.04);
+      }
       if (f.kind === "player" && puff.current) {
         const m = puff.current;
         const t = drop.puff / PUFF;
