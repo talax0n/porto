@@ -4,7 +4,16 @@ export type Gesture =
   | "point"
   | "cheer"
   | "ready"
-  | "crouch";
+  | "crouch"
+  | "idleLook"
+  | "idleStretch"
+  | "idleTap"
+  | "idleSway"
+  | "hop"
+  | "greet"
+  | "celebrate";
+
+export const IDLES = ["idleLook", "idleStretch", "idleTap", "idleSway"] as const satisfies readonly Gesture[];
 
 /**
  * The player's gesture layer, in character space. Arm raise swings out from hanging (0) through
@@ -25,9 +34,11 @@ export interface Pose {
   headYaw: number;
   /** positive squashes, negative stretches */
   squash: number;
+  /** lift of the left foot */
+  tap: number;
 }
 
-const KEYS = ["armR", "fwdR", "armL", "fwdL", "grow", "swing", "lean", "bounce", "headYaw", "squash"] as const;
+const KEYS = ["armR", "fwdR", "armL", "fwdL", "grow", "swing", "lean", "bounce", "headYaw", "squash", "tap"] as const;
 
 export const blankPose = (): Pose => ({
   armR: 0.55,
@@ -40,10 +51,13 @@ export const blankPose = (): Pose => ({
   bounce: 0,
   headYaw: 0,
   squash: 0,
+  tap: 0,
 });
 
 const REST = blankPose();
 const smooth = (x: number) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+/** 0 → 1 over `rise` seconds, held, then back to 0 by `end` */
+const swell = (t: number, rise: number, end: number) => smooth(t / rise) * (1 - smooth((t - end + rise) / rise));
 
 interface Move {
   /** one-shots hand back to rest after this many seconds */
@@ -111,6 +125,72 @@ const MOVES: Record<Gesture, Move> = {
       p.squash = (wind * 0.25 - spring * 0.35) * m;
     },
   },
+  idleLook: {
+    set(p, t) {
+      // wide enough that a cheek shows past the beanie from the camera behind
+      p.headYaw = Math.sin(t * 1.4) * 1;
+      p.lean = Math.sin(t * 1.4) * -0.06;
+    },
+  },
+  idleStretch: {
+    set(p, t) {
+      const up = swell(t, 0.7, 3);
+      p.armR = p.armL = 0.55 + up * 2.35;
+      p.grow = up;
+      p.squash = up * -0.14 + Math.sin(t * 2) * 0.02 * up;
+      p.swing = 1 - up;
+    },
+  },
+  idleTap: {
+    set(p, t) {
+      const tap = Math.max(0, Math.sin(t * 8));
+      p.tap = tap;
+      p.lean = -0.05;
+      p.bounce = tap * 0.03;
+      p.armR = p.armL = 0.55 + tap * 0.2;
+      p.headYaw = 0.15;
+    },
+  },
+  idleSway: {
+    set(p, t) {
+      p.lean = Math.sin(t * 2.6) * 0.13;
+      p.bounce = Math.abs(Math.sin(t * 2.6)) * 0.04;
+      p.headYaw = Math.sin(t * 2.6) * 0.18;
+      p.armR = 0.55 + Math.max(0, Math.sin(t * 2.6)) * 0.3;
+      p.armL = 0.55 + Math.max(0, -Math.sin(t * 2.6)) * 0.3;
+    },
+  },
+  hop: {
+    once: 0.7,
+    set(p, t, m) {
+      const air = t < 0.45 ? Math.sin((Math.PI * t) / 0.45) : 0;
+      p.armR = p.armL = 2.15;
+      p.grow = 1;
+      p.swing = 0;
+      p.bounce = air * 0.42 * m;
+      p.squash = (t < 0.45 ? -air * 0.14 : Math.sin(((t - 0.45) / 0.25) * Math.PI) * 0.16) * m;
+    },
+  },
+  greet: {
+    once: 0.7,
+    set(p, t, m) {
+      const up = swell(t, 0.12, 0.7);
+      p.armR = 0.55 + up * (1.85 + Math.sin(t * 16) * 0.35 * m);
+      p.grow = up;
+      p.swing = 1 - up;
+      p.headYaw = -0.3 * up;
+    },
+  },
+  celebrate: {
+    // the crowd's shared jump lifts the body; this is only the arms
+    once: 1.4,
+    set(p, t, m) {
+      p.armR = 2.15 + Math.sin(t * 14) * 0.2 * m;
+      p.armL = 2.15 - Math.sin(t * 14) * 0.2 * m;
+      p.grow = 1;
+      p.swing = 0;
+    },
+  },
 };
 
 export const onceOf = (g: Gesture) => MOVES[g].once;
@@ -129,3 +209,15 @@ export function mixPose(a: Pose, b: Pose, k: number, out: Pose): Pose {
   return out;
 }
 
+/** Swaps the arms and every left-right sign, so a gesture can play on the other side. */
+export function mirrorPose(p: Pose): Pose {
+  const arm = p.armR;
+  const fwd = p.fwdR;
+  p.armR = p.armL;
+  p.fwdR = p.fwdL;
+  p.armL = arm;
+  p.fwdL = fwd;
+  p.lean = -p.lean;
+  p.headYaw = -p.headYaw;
+  return p;
+}

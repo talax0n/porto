@@ -138,6 +138,7 @@ export function useHQ() {
     (text: string) => {
       ctl.celebrate.t = 0;
       ctl.celebrate.active = true;
+      setGesture("celebrate");
       say(text);
     },
     [say],
@@ -178,6 +179,7 @@ export function useHQ() {
     ctl.target = null;
     // face the landmark so the camera frames it from its door, whichever side the player came from
     toward(ctl.player.n, LANDMARKS[id].n, ctl.north);
+    setGesture("hop");
     advance({ type: "open", id });
   }, [advance]);
 

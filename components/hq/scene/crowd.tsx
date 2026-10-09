@@ -32,7 +32,7 @@ import {
   move,
   stepVillager,
 } from "./folk";
-import { blankPose, mixPose, onceOf, poseOf } from "./gesture";
+import { IDLES, type Gesture, blankPose, mirrorPose, mixPose, onceOf, poseOf } from "./gesture";
 import { LANDMARKS, R, arc, flatten, frameAt, steer, toward } from "./planet";
 import { blobTexture } from "./props";
 
@@ -62,7 +62,12 @@ const STARTLE = 3.5;
 const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefers-reduced-motion: reduce)");
 /** the player's intro clocks: vertical speed, a free-running hover clock, crouch, flail blend, puff age */
 const drop = { vy: 0, t: 0, wind: 0, flail: 0, puff: Infinity, last: ctl.intro };
+/** seconds of gesture blend, and the idle schedule once the player stands still */
 const BLEND = 0.25;
+const IDLE_AFTER = 3;
+const IDLE_EACH = 3.6;
+const idle = { t: 0 };
+const isIdle = (g: Gesture) => (IDLES as readonly Gesture[]).includes(g);
 /** the pose on screen, the one it blends from, and the gesture's own pose this frame */
 const shown = blankPose();
 const from = blankPose();
@@ -204,18 +209,33 @@ function stepDrop(f: Folk, dt: number) {
 }
 
 /**
- * Advances the player's gesture clock and writes the blended pose to `shown`.
+ * Advances the player's gesture clock, runs the idle schedule, and writes the blended pose to `shown`.
  * Gestures change by snapshotting whatever is on screen and easing from there, so nothing snaps.
  */
-function stepGesture(dt: number) {
+function stepGesture(f: Folk, dt: number) {
   const g = ctl.gesture;
   const motion = reduced?.matches ? 0 : 1;
+  if (ctl.intro === "ground") {
+    if (f.speed > 0.05 || ctl.target) {
+      idle.t = 0;
+      if (isIdle(g.current)) setGesture("rest");
+    } else if (motion && (g.current === "rest" || isIdle(g.current))) {
+      idle.t += dt;
+      if (idle.t > IDLE_AFTER && (g.current === "rest" || g.t > IDLE_EACH)) {
+        let next: Gesture;
+        do next = IDLES[Math.floor(Math.random() * IDLES.length)];
+        while (next === g.current);
+        setGesture(next);
+      }
+    }
+  }
   const once = onceOf(g.current);
   if (once !== undefined && g.t >= once) setGesture("rest");
   if (g.blend === 0) mixPose(shown, shown, 0, from);
   g.t += dt;
   g.blend = Math.min(1, g.blend + dt / BLEND);
   poseOf(g.current, g.t, motion, live);
+  if (g.side < 0) mirrorPose(live);
   mixPose(from, live, g.blend, shown);
 }
 
@@ -346,7 +366,7 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
       if (f.kind === "player") {
         turn = stepPlayer(f, dt, stuck);
         stepDrop(f, dt);
-        stepGesture(dt);
+        stepGesture(f, dt);
         // gesture bounces lift the whole body, feet and all, unlike the torso-only greeting hop
         lift = ctl.alt + shown.bounce + (ctl.intro === "hover" && !reduced?.matches ? Math.sin(drop.t * 2.2) * 0.07 : 0);
       } else if (f.kind === "keeper") turn = stepKeeper(f, dt);
@@ -358,6 +378,12 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
           f.hop = 0;
           hiFolk.current = f;
           hiEl.current?.animate(HI_POP, HI_TIMING);
+          const g = ctl.gesture.current;
+          if (g !== "hop" && g !== "celebrate") {
+            // wave with the arm on the villager's side; the frame's +x is the character's left
+            const left = v.subVectors(f.n, ctl.player.n).dot(right.crossVectors(ctl.player.n, ctl.player.heading)) > 0;
+            setGesture("greet", left ? -1 : 1);
+          }
         }
       }
       animate(f, dt, turn);
@@ -389,8 +415,9 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
         const side = k ? 1 : -1;
         const swing = step * side * f.amp;
         // feet hang off the ground frame, not the torso, so the waddle never lifts them through the floor
+        const tap = f.kind === "player" && k ? shown.tap * 0.1 : 0;
         local.compose(
-          v.set(side * 0.1, 0.06 + Math.max(0, swing) * 0.06, 0.03 + swing * 0.1),
+          v.set(side * 0.1, 0.06 + Math.max(0, swing) * 0.06 + tap, 0.03 + swing * 0.1 + tap * 0.4),
           q.identity(),
           s.set(0.09, 0.065, 0.125),
         );

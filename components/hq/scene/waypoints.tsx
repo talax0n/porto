@@ -83,6 +83,11 @@ const ranked = new Float32Array(N);
 /** HUD boxes the edge arrows slide around, re-measured every few frames */
 let hud: DOMRect[] = [];
 let measured = 0;
+/** tag widths in pixels, re-measured every few frames so the clamp never forces a layout per frame */
+const tagW = new Float32Array(N);
+let tick = 0;
+/** pixels a name tag keeps from the left and right screen edges */
+const TAG_EDGE = 8;
 
 /** 0 an arrow, 1 a check: eased so a fresh visit turns over instead of popping */
 const done = new Float32Array(N);
@@ -153,6 +158,7 @@ export function Waypoints({ near, inspecting, visited, target, show }: Waypoints
     const bottom = -1 + (2 * INSET.bottom) / size.height;
     const side = 1 - (2 * INSET.side) / size.width - MARGIN;
 
+    tick++;
     for (let i = 0; i < N; i++) {
       const id = STATIONS[i].id;
       const { n } = LANDMARKS[id];
@@ -191,7 +197,17 @@ export function Waypoints({ near, inspecting, visited, target, show }: Waypoints
       const g = tagGroups.current[i];
       const el = tags.current[i];
       if (g) g.position.copy(n).multiplyScalar(roofs[i]).addScaledVector(camY, TAG_UP).addScaledVector(camX, slide);
-      if (el) el.style.opacity = !focus || id === focus ? v.toFixed(2) : "0";
+      if (el) {
+        el.style.opacity = !focus || id === focus ? v.toFixed(2) : "0";
+        if (tick % 20 === 0 || !tagW[i]) tagW[i] = el.offsetWidth * 1.1;
+        if (g && v > 0) {
+          // the arrow over a wide tag can sit near the edge while the pill itself runs off it
+          const x = (p3.copy(g.position).project(camera).x * 0.5 + 0.5) * size.width;
+          const hw = tagW[i] / 2;
+          const nudge = Math.max(0, TAG_EDGE + hw - x) - Math.max(0, x + hw - (size.width - TAG_EDGE));
+          el.style.translate = `${nudge.toFixed(1)}px 0`;
+        }
+      }
 
       if (!a || !c) continue;
       const bob = still ? 0 : Math.sin(t * 3 + i * 1.3) * 0.14 * (1 - done[i]);
