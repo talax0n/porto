@@ -10,7 +10,7 @@ import { useHQ } from "./use-hq";
 // The DOM shell paints first; three.js loads behind a plain placeholder.
 const Scene = dynamic(() => import("./scene/scene"), {
   ssr: false,
-  loading: () => <div className="absolute inset-0 bg-hq-bg" />,
+  loading: () => <div className="absolute inset-0 bg-white" />,
 });
 
 export function HQ() {
@@ -20,7 +20,7 @@ export function HQ() {
   const intro = state.mode === "onboarding" || state.mode === "landing";
 
   return (
-    <main className="relative h-dvh w-full overflow-hidden bg-hq-bg">
+    <main className="relative h-dvh w-full overflow-hidden bg-white">
       <Scene state={state} onTravel={travel} onOpen={open} onNext={next} onSkip={skip} />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-4 sm:p-6">

@@ -104,7 +104,7 @@ export interface Controls {
 const spawn = dirAt(8, 90);
 /** returning visitors drop from just above, which also hides the spawn */
 export const DROP_IN = 1.6;
-export const HOVER = 3.4;
+export const HOVER = 4.6;
 
 export const ctl: Controls = {
   player: { n: spawn, heading: flatten(new Vector3(0, 0, -1), spawn) },

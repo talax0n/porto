@@ -20,9 +20,8 @@ const north = ctl.north.clone();
 const side = new Vector3();
 const lookAt = new Vector3();
 const view = { x: 0, y: 0, dist: DIST };
-/** close-up on the hovering player, front-on: back off along the carried north, a little above */
-const CLOSE_BACK = 4.6;
-const CLOSE_UP = 3.2;
+/** close-up on the hovering player, eye level and front-on, so only white sky sits behind it */
+const CLOSE_BACK = 5.2;
 /** how far into the intro close-up the camera is; negative until the first frame picks a side */
 let close = -1;
 const closePos = new Vector3();
@@ -90,13 +89,9 @@ export function CameraRig() {
       closeAt.copy(p).multiplyScalar(R + ctl.alt + 0.45);
       // phones are tall and narrow, so back off further to keep the character and the bubble in frame
       const back = narrow ? 1.45 : 1;
-      closePos
-        .copy(closeAt)
-        .addScaledVector(north, -CLOSE_BACK * back)
-        .addScaledVector(p, CLOSE_UP * back);
+      closePos.copy(closeAt).addScaledVector(north, -CLOSE_BACK * back);
       camera.position.lerp(closePos, c);
-      // aim a little under the character so it sits high and the planet fills the lower frame
-      lookAt.lerp(closeAt.addScaledVector(p, -0.6), c);
+      lookAt.lerp(closeAt, c);
       camera.up.lerp(p, c).normalize();
       // the bubble needs room beside the character on wide screens and below it on phones
       if (narrow) oy += (size.height * 0.1 - oy) * c;
