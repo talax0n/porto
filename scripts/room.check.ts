@@ -1,0 +1,63 @@
+import assert from "node:assert/strict";
+import { PRESETS, ROOM_CAP, cleanSay, parseClient, parseServer } from "../data/room.ts";
+
+const n = [0, 1, 0];
+const h = [0, 0, 1];
+const peer = { id: "a1b2c3", look: 4294967295, n, h };
+const enc = JSON.stringify;
+
+// the chat filter
+assert.equal(cleanSay("check https://evil.io/x?y=1 out"), "check out");
+assert.equal(cleanSay("mail me bob@corp.com pls"), "mail me pls");
+assert.equal(cleanSay(`key ${"a".repeat(30)} here`), "key here");
+assert.equal(cleanSay("  hi \n\t there\u0007​!  "), "hi there !");
+assert.equal(cleanSay("what the FUCK, shitty Scunthorpe"), "what the ***, *** Scunthorpe");
+assert.equal(cleanSay("x".repeat(500)), null, "a 500-char token is secret-shaped");
+assert.equal(cleanSay("ab ".repeat(100)), "ab ".repeat(40).trimEnd());
+assert.equal(Array.from(cleanSay("😀".repeat(200)) ?? "").length, 120);
+assert.equal(cleanSay("   "), null);
+assert.equal(cleanSay("https://a.b"), null);
+assert.equal(cleanSay(42), null);
+assert.equal(cleanSay("<img src=x onerror=alert(1)>"), "<img src=x onerror=alert(1)>", "text stays text; React never renders it as HTML");
+for (const p of PRESETS) assert.equal(cleanSay(p), p, `preset survives its own filter: ${p}`);
+for (const s of ["a *** b", "hi 👋", "ok"]) assert.equal(cleanSay(cleanSay(s)), cleanSay(s), "idempotent");
+
+// client -> server
+assert.deepEqual(parseClient(enc({ t: "move", n, h })), { t: "move", n, h });
+assert.deepEqual(parseClient(enc({ t: "move", n: [0.00049, 0.99999, 0], h })), { t: "move", n: [0, 1, 0], h }, "rounded to 3 decimals");
+assert.equal(parseClient(enc({ t: "move", n, h, id: "zzzzzz" })), null, "no id: the server stamps it");
+assert.equal(parseClient(enc({ t: "move", n: [0, 2, 0], h })), null, "not a unit vector");
+assert.equal(parseClient(enc({ t: "move", n: [0, 1], h })), null, "two components");
+assert.equal(parseClient(enc({ t: "move", n: [0, "1", 0], h })), null, "string component");
+assert.equal(parseClient('{"t":"move","n":[0,1,0],"h":[0,0,1e999]}'), null, "infinite component");
+assert.deepEqual(parseClient(enc({ t: "say", text: "go to https://x.io now" })), { t: "say", text: "go to now" });
+assert.equal(parseClient(enc({ t: "say", text: "https://x.io" })), null, "nothing left to say");
+assert.equal(parseClient(enc({ t: "say", text: "hi", id: "a1b2c3" })), null, "cannot speak as another id");
+assert.deepEqual(parseClient(enc({ t: "emote", e: "wave" })), { t: "emote", e: "wave" });
+assert.equal(parseClient(enc({ t: "emote", e: "sleep" })), null, "unknown emote");
+assert.deepEqual(parseClient(enc({ t: "preset", p: 5 })), { t: "preset", p: 5 });
+for (const p of [6, -1, 1.5, "0"]) assert.equal(parseClient(enc({ t: "preset", p })), null, `bad preset ${p}`);
+assert.equal(parseClient("not json"), null);
+assert.equal(parseClient("[1]"), null);
+assert.equal(parseClient(enc({ t: "kick", id: "a1b2c3" })), null);
+assert.equal(parseClient(enc({ t: "say", text: "a".repeat(5000) })), null, "oversized frame");
+assert.equal(parseClient(new ArrayBuffer(4)), null, "binary frame");
+
+// server -> client
+assert.deepEqual(parseServer(enc({ t: "hello", you: "q1w2e3", peers: [peer] })), { t: "hello", you: "q1w2e3", peers: [peer] });
+assert.equal(parseServer(enc({ t: "hello", you: "q1w2e3", peers: Array(ROOM_CAP + 1).fill(peer) })), null, "over the cap");
+assert.notEqual(parseServer(enc({ t: "hello", you: "q1w2e3", peers: Array(ROOM_CAP).fill(peer) })), null, "at the cap");
+assert.equal(parseServer(enc({ t: "hello", you: "Q1W2E3", peers: [] })), null, "uppercase id");
+assert.equal(parseServer(enc({ t: "join", peer: { ...peer, look: -1 } })), null, "negative look");
+assert.equal(parseServer(enc({ t: "join", peer: { ...peer, look: 2 ** 32 } })), null, "look past uint32");
+assert.equal(parseServer(enc({ t: "join", peer: { ...peer, name: "x" } })), null, "extra peer field");
+assert.deepEqual(parseServer(enc({ t: "join", peer })), { t: "join", peer });
+assert.deepEqual(parseServer(enc({ t: "leave", id: "a1b2c3" })), { t: "leave", id: "a1b2c3" });
+assert.deepEqual(parseServer(enc({ t: "move", id: "a1b2c3", n, h })), { t: "move", id: "a1b2c3", n, h });
+assert.deepEqual(parseServer(enc({ t: "say", id: "a1b2c3", text: "hi!" })), { t: "say", id: "a1b2c3", text: "hi!" });
+assert.equal(parseServer(enc({ t: "say", id: "a1b2c3", text: "see https://x.io" })), null, "server text must already be clean");
+assert.deepEqual(parseServer(enc({ t: "emote", id: "a1b2c3", e: "cheer" })), { t: "emote", id: "a1b2c3", e: "cheer" });
+assert.deepEqual(parseServer(enc({ t: "full" })), { t: "full" });
+assert.equal(parseServer(enc({ t: "full", why: "x" })), null);
+assert.equal(parseServer(undefined), null);
+console.log("room.check ok");

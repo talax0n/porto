@@ -19,7 +19,7 @@ export const TITLE_MAX = 60;
 const ID = /^[0-9a-f]{8}$/;
 
 // titles come from prompts, so anything shaped like a link, an address or a key is blanked
-const SECRETISH = /https?:\/\/\S+|\S+@\S+\.\S+|[\w-]{24,}/g;
+export const SECRETISH = /https?:\/\/\S+|\S+@\S+\.\S+|[\w-]{24,}/g;
 
 export function cleanTitle(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -49,10 +49,10 @@ export const KIND_BY_TOOL: Record<string, Kind> = {
 export const kindOf = (tool: unknown): Kind =>
   (typeof tool === "string" && Object.hasOwn(KIND_BY_TOOL, tool) ? KIND_BY_TOOL[tool] : "other");
 
-const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
+export const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
 const isCount = (x: unknown): x is number => typeof x === "number" && Number.isSafeInteger(x) && x >= 0;
-const oneOf = <T extends string>(set: readonly T[], x: unknown): x is T => set.includes(x as T);
-const exactly = (o: Record<string, unknown>, keys: string[]) =>
+export const oneOf = <T extends string>(set: readonly T[], x: unknown): x is T => set.includes(x as T);
+export const exactly = (o: Record<string, unknown>, keys: string[]) =>
   Object.keys(o).length === keys.length && keys.every((k) => Object.hasOwn(o, k));
 
 export function parsePulse(x: unknown): Pulse | null {
