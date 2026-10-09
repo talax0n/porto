@@ -140,7 +140,7 @@ function scan(): Pulse {
     day = new Date(now).toDateString();
     countedToday.clear();
   }
-  const agents: Agent[] = [];
+  const live: [number, Agent][] = [];
   for (const [path, provider] of files()) {
     let st;
     try {
@@ -165,12 +165,14 @@ function scan(): Pulse {
         s.titledAt = now;
         s.title = provider === "claude" ? (claudeTitle(readFileSync(path, "utf8")) ?? s.title) : codexTitle(path);
       }
-      agents.push({ id: s.id, provider, ...s.last, title: s.title });
+      live.push([s.mtime, { id: s.id, provider, ...s.last, title: s.title }]);
     }
   }
   first = false;
   const lastSeen = Math.round(Math.max(0, ...[...sessions.values()].map((s) => s.mtime)));
-  return { agents: agents.slice(0, MAX_AGENTS), lastSeen, runsToday: countedToday.size };
+  // past the cap, drop the quietest sessions so the same ones stay on screen between scans
+  const agents = live.sort(([a], [b]) => b - a).slice(0, MAX_AGENTS).map(([, a]) => a);
+  return { agents, lastSeen, runsToday: countedToday.size };
 }
 
 let sent = "";

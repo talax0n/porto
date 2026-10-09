@@ -73,8 +73,9 @@ export function Agents() {
   const heads = useRef<(Group | null)[]>([]);
   const bubbles = useRef<(HTMLDivElement | null)[]>([]);
   const idle = !pulse.agents.some((a) => a.phase !== "done") && pulse.lastSeen > 0;
-  // the idle summary rides on whoever is first in bed
-  const napper = idle ? acts.findIndex((a) => a.s === "bedtime" || a.s === "asleep") : -1;
+  // the idle summary rides on the agentless napper, else whoever is first in bed
+  const beds = idle ? acts.flatMap((a, v) => (a.s === "bedtime" || a.s === "asleep" ? [{ v, agent: a.agent }] : [])) : [];
+  const napper = (beds.find((b) => !b.agent) ?? beds[0])?.v ?? -1;
   const summary = `zzz · last active ${ago(at - pulse.lastSeen)} · ${pulse.runsToday} runs today`;
   const lines = acts.map((a, v) => lineOf(a, v === napper ? summary : null));
 

@@ -124,7 +124,7 @@ export function Screens() {
     const agents = DESKS.map((_, i) => deskAgent(i));
     const key = agents.map((a) => a?.kind ?? "-").join();
     // nobody typing and nothing changed: the dark screens are already drawn
-    if (key === c.shown && agents.every((a) => !a)) return;
+    if (key === c.shown && (reduced?.matches || agents.every((a) => !a))) return;
     c.shown = key;
     if (!reduced?.matches) c.tick++;
     const { g, tex } = kit();

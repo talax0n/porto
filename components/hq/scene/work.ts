@@ -85,11 +85,11 @@ function seatFor(agent: Agent, job: Job): Activity {
 function toBed(v: number, agent: Agent | null) {
   let bed = free("bed");
   if (bed < 0) {
-    // every bed is taken: the longest sleeper gets up for the newcomer
-    const since = (u: number) => { const a = town.acts[u]; return a.s === "asleep" ? a.since : Infinity; };
+    // every bed is taken: the longest sleeper gets up for the newcomer, else one still on its way there
+    const since = (u: number) => { const a = town.acts[u]; return a.s === "asleep" ? a.since : a.s === "bedtime" ? Number.MAX_VALUE : Infinity; };
     const oldest = town.acts.reduce((best, _, u) => (since(u) < since(best) ? u : best), 0);
     const o = town.acts[oldest];
-    if (o.s === "asleep") {
+    if ((o.s === "asleep" || o.s === "bedtime") && oldest !== v) {
       bed = o.bed;
       set(oldest, WANDER);
     }
