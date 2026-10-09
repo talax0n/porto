@@ -40,6 +40,8 @@ export function IntroBubble({ step, onNext, onSkip }: IntroBubbleProps) {
 
   const typing = useTyping(step);
   const narrow = typeof window !== "undefined" && window.innerWidth < 640;
+  // short phones can't fit four bubbles above the head without reaching the wordmark
+  const first = narrow && window.innerHeight < 800 ? Math.max(0, step - 2) : 0;
   return (
     <group ref={anchor}>
       <Html zIndexRange={[16, 0]}>
@@ -48,7 +50,8 @@ export function IntroBubble({ step, onNext, onSkip }: IntroBubbleProps) {
           aria-label="Intro"
           className="flex w-[min(300px,calc(100vw-24px))] -translate-y-1/2 flex-col items-start gap-1.5 max-sm:w-[min(320px,calc(100vw-32px))] max-sm:-translate-x-1/2 max-sm:-translate-y-full max-sm:items-center"
         >
-          {INTRO.slice(0, step + 1).map((line, i) => {
+          {INTRO.slice(first, step + 1).map((line, j) => {
+            const i = first + j;
             const current = i === step;
             return (
               <motion.button
