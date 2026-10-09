@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { Group } from "three";
-import { type Provider, ago, say } from "@/data/pulse";
+import { type Provider, say } from "@/data/pulse";
 import { ctl } from "../game";
 import { usePulse } from "../use-pulse";
 import { R, arc } from "./planet";
@@ -32,32 +32,26 @@ interface Line {
   status: string;
 }
 
-/** What a villager's bubble says, or null when it has nothing to report. `summary` goes on the idle napper. */
-function lineOf(a: Activity, summary: string | null): Line | null {
+/** What a villager's bubble says, or null for an empty slot. */
+function lineOf(a: Activity): Line | null {
   if (a.s === "wander") return null;
-  const resting = a.s === "bedtime" || a.s === "asleep";
-  const status = resting ? (summary ?? (a.s === "asleep" ? "zzz" : "done")) : say(a.agent);
-  return { title: a.agent?.title ?? null, provider: a.agent?.provider ?? null, status };
+  const status = a.s === "asleep" ? "zzz" : a.s === "bedtime" ? "done" : say(a.agent);
+  return { title: a.agent.title, provider: a.agent.provider, status };
 }
 
 /**
- * One villager per live agent, at a desk in projects or a machine in the gym; a finished one
- * walks to a bed in the about house and sleeps it off. With nothing live, someone naps there.
+ * One villager per live agent, dropped from the sky by a desk in projects or a machine in the gym;
+ * a finished one walks to a bed in the about house, sleeps it off, then its slot empties.
  */
 export function Agents() {
-  const { pulse, at } = usePulse();
+  usePulse();
   // activities are replaced, never mutated, so a shallow copy is a faithful snapshot for rendering
   const [acts, setActs] = useState(() => [...town.acts]);
   const rev = useRef(town.rev);
   const seen = useRef<object | null>(null);
   const heads = useRef<(Group | null)[]>([]);
   const bubbles = useRef<(HTMLDivElement | null)[]>([]);
-  const idle = !pulse.agents.some((a) => a.phase !== "done") && pulse.lastSeen > 0;
-  // the idle summary rides on the agentless napper, else whoever is first in bed
-  const beds = idle ? acts.flatMap((a, v) => (a.s === "bedtime" || a.s === "asleep" ? [{ v, agent: a.agent }] : [])) : [];
-  const napper = (beds.find((b) => !b.agent) ?? beds[0])?.v ?? -1;
-  const summary = `zzz · last active ${ago(at - pulse.lastSeen)} · ${pulse.runsToday} runs today`;
-  const lines = acts.map((a, v) => lineOf(a, v === napper ? summary : null));
+  const lines = acts.map(lineOf);
 
   useFrame(({ camera, clock }) => {
     if (seen.current !== ctl.pulse) {
@@ -73,7 +67,7 @@ export function Agents() {
       const head = heads.current[i];
       const bubble = bubbles.current[i];
       if (!head || !bubble) return;
-      head.position.copy(v.n).multiplyScalar(HEAD + v.lift);
+      head.position.copy(v.n).multiplyScalar(HEAD + v.lift + v.alt);
       // Html ignores group.visible and would paint through the planet, so fade the DOM itself
       bubble.style.opacity = v.n.dot(camera.position) > 0 && arc(v.n, ctl.player.n) < NEAR ? "1" : "0";
     });

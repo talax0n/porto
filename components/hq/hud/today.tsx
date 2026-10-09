@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Check, ChevronDown, Flame, Footprints, Hand, MapPin, type LucideIcon } from "lucide-react";
+import { Check, ChevronDown, Flame, Footprints, MapPin, type LucideIcon } from "lucide-react";
 import type { Quest, QuestRow } from "@/data/quests";
 import type { StationId } from "@/data/stations";
 import { cn } from "@/lib/utils";
 
-const ICON: Record<Quest["kind"], LucideIcon> = { meet: Hand, visit: MapPin, walk: Footprints };
+const ICON: Record<Quest["kind"], LucideIcon> = { visit: MapPin, walk: Footprints };
 
 interface TodayProps {
   quests: readonly QuestRow[];
@@ -44,7 +44,7 @@ export function Today({ quests, streak, onTravel }: TodayProps) {
         </header>
         <ul className="flex flex-col gap-2.5">
           {quests.map((q) => (
-            <li key={q.quest.kind}>
+            <li key={q.label}>
               <Row row={q} onTravel={onTravel} />
             </li>
           ))}

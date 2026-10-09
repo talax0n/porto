@@ -2,7 +2,6 @@ import { rng } from "@/components/hq/scene/props";
 import { STATIONS, type StationId } from "./stations";
 
 export type Quest =
-  | { kind: "meet"; count: number }
   | { kind: "visit"; station: StationId }
   | { kind: "walk"; steps: number };
 
@@ -10,8 +9,6 @@ export type Quest =
 export interface DayLog {
   /** local date, YYYY-MM-DD */
   date: string;
-  /** villagers met for the first time today */
-  met: number;
   opened: readonly StationId[];
   steps: number;
 }
@@ -35,17 +32,18 @@ export function dayBefore(date: string): string {
   return key(new Date(y, m - 1, d - 1));
 }
 
-export const freshDay = (date: string): DayLog => ({ date, met: 0, opened: [], steps: 0 });
+export const freshDay = (date: string): DayLog => ({ date, opened: [], steps: 0 });
 
-/** One of each kind, seeded by the date, so everyone visiting on the same day gets the same three. */
+/** Two different stations and a walk, seeded by the date, so everyone visiting on the same day gets the same three. */
 export function questsFor(date: string): readonly Quest[] {
   let seed = 2166136261;
   for (const ch of date) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
   const rand = rng(seed);
   const pick = <T,>(xs: readonly T[]) => xs[Math.floor(rand() * xs.length)];
+  const first = pick(STATIONS).id;
   return [
-    { kind: "visit", station: pick(STATIONS).id },
-    { kind: "meet", count: pick([3, 4, 5, 6]) },
+    { kind: "visit", station: first },
+    { kind: "visit", station: pick(STATIONS.filter((s) => s.id !== first)).id },
     { kind: "walk", steps: pick([200, 300, 400]) },
   ];
 }
@@ -62,8 +60,6 @@ const VISIT: Record<StationId, string> = {
 
 export function questLabel(q: Quest): string {
   switch (q.kind) {
-    case "meet":
-      return `Say hi to ${q.count} new folks`;
     case "visit":
       return VISIT[q.station];
     case "walk":
@@ -79,15 +75,10 @@ export interface QuestRow {
   done: boolean;
 }
 
-/** `unmet` caps the meet quest, so a visitor who already knows everyone isn't handed an impossible one. */
-export function questRows(log: DayLog, unmet: number): QuestRow[] {
+export function questRows(log: DayLog): QuestRow[] {
   return questsFor(log.date).map((quest) => {
     const [value, goal] =
-      quest.kind === "meet"
-        ? [log.met, Math.min(quest.count, log.met + unmet)]
-        : quest.kind === "visit"
-          ? [+log.opened.includes(quest.station), 1]
-          : [Math.min(log.steps, quest.steps), quest.steps];
+      quest.kind === "visit" ? [+log.opened.includes(quest.station), 1] : [Math.min(log.steps, quest.steps), quest.steps];
     return { quest, label: questLabel(quest), value, goal, done: value >= goal };
   });
 }

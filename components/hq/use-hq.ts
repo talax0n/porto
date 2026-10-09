@@ -4,11 +4,9 @@ import { STATIONS, STATION_BY_ID, type StationId } from "@/data/stations";
 import { INTRO } from "@/data/onboarding";
 import { type GameAction, HOVER, ctl, gameReducer, setGesture, setPing, setTarget, initialState } from "./game";
 import { IDENTITY } from "./scene/dioramas";
-import { VILLAGERS } from "./scene/folk";
 import { LANDMARKS, arc, toward } from "./scene/planet";
 
 const VISITED_KEY = "hq:visited";
-const MET_KEY = "hq:met";
 const INTRO_KEY = "hq:intro";
 const DAILY_KEY = "hq:daily";
 const STREAK_KEY = "hq:streak";
@@ -42,17 +40,16 @@ function load<T>(key: string, keep: (v: unknown) => v is T): T[] {
 }
 
 const isStation = (v: unknown): v is StationId => typeof v === "string" && v in STATION_BY_ID;
-const isVillager = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < VILLAGERS;
 const isCount = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0;
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
 /** Yesterday's log, or a malformed one, starts today over. */
 function loadDaily(date: string): DayLog {
   const v = read(DAILY_KEY);
-  if (!isRecord(v) || v.date !== date || !isCount(v.met) || !isCount(v.steps) || !Array.isArray(v.opened)) {
+  if (!isRecord(v) || v.date !== date || !isCount(v.steps) || !Array.isArray(v.opened)) {
     return freshDay(date);
   }
-  return { date, met: v.met, steps: v.steps, opened: v.opened.filter(isStation) };
+  return { date, steps: v.steps, opened: v.opened.filter(isStation) };
 }
 
 function loadStreak(): Streak {
@@ -62,7 +59,6 @@ function loadStreak(): Streak {
 }
 
 const STATIONS_DONE = "All 7 lit. Thanks for looking around!";
-const PEOPLE_DONE = `You met all ${VILLAGERS} villagers. Everyone knows you now.`;
 
 export function useHQ() {
   const [state, dispatch] = useReducer(gameReducer, initialState);
@@ -88,7 +84,6 @@ export function useHQ() {
     dispatch({
       type: "hydrate",
       visited: load(VISITED_KEY, isStation),
-      met: load(MET_KEY, isVillager),
       introSeen,
       daily: loadDaily(date),
       streak: loadStreak(),
@@ -124,9 +119,6 @@ export function useHQ() {
     if (state.visited.size) localStorage.setItem(VISITED_KEY, JSON.stringify([...state.visited]));
   }, [state.visited]);
   useEffect(() => {
-    if (state.met.size) localStorage.setItem(MET_KEY, JSON.stringify([...state.met]));
-  }, [state.met]);
-  useEffect(() => {
     if (state.daily) localStorage.setItem(DAILY_KEY, JSON.stringify(state.daily));
   }, [state.daily]);
   useEffect(() => {
@@ -144,10 +136,7 @@ export function useHQ() {
     [say],
   );
 
-  const quests = useMemo(
-    () => (state.daily ? questRows(state.daily, VILLAGERS - state.met.size) : null),
-    [state.daily, state.met.size],
-  );
+  const quests = useMemo(() => (state.daily ? questRows(state.daily) : null), [state.daily]);
   const streak = state.daily ? liveStreak(state.streak, state.daily.date) : 0;
 
   /**
@@ -161,8 +150,8 @@ export function useHQ() {
       stateRef.current = after;
       dispatch(action);
       if (!before.daily || !after.daily || before.daily.date !== after.daily.date) return;
-      const was = questRows(before.daily, VILLAGERS - before.met.size);
-      const now = questRows(after.daily, VILLAGERS - after.met.size);
+      const was = questRows(before.daily);
+      const now = questRows(after.daily);
       const fresh = now.find((q, i) => q.done && !was[i].done);
       if (!fresh) return;
       if (now.every((q) => q.done)) celebrate(`Daily goal done. ${liveStreak(after.streak, after.daily.date)}-day streak!`);
@@ -211,16 +200,10 @@ export function useHQ() {
     [close],
   );
 
-  // Poll at 10Hz so proximity and greetings never touch React from the render loop.
+  // Poll at 10Hz so proximity and landing never touch React from the render loop.
   useEffect(() => {
     const id = setInterval(() => {
       const s = stateRef.current;
-      if (ctl.greeted.length) {
-        const fresh = ctl.greeted.filter((v) => !s.met.has(v)).length;
-        if (s.met.size < VILLAGERS && s.met.size + fresh >= VILLAGERS) celebrate(PEOPLE_DONE);
-        advance({ type: "greet", ids: ctl.greeted });
-        ctl.greeted = [];
-      }
       if (s.mode === "landing" && ctl.intro === "ground") dispatch({ type: "landed" });
       const steps = Math.floor(ctl.walked / STEP);
       if (steps >= STEP_BATCH) {

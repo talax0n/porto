@@ -2,7 +2,8 @@ import { Vector3 } from "three";
 import type { Agent, Pulse } from "@/data/pulse";
 import { PLACES, PLINTH_HEIGHT, type Place, type Spot } from "./dioramas";
 import { RADIUS, VILLAGERS, type Post, type Villager } from "./folk";
-import { LANDMARKS, R, type Landmark, arc, flatten, footprintAt } from "./planet";
+import { LANDMARKS, R, type Landmark, arc, flatten, footprintAt, resolve, toward, walk } from "./planet";
+import { scatter } from "./props";
 
 type Job = Exclude<Place, "bed">;
 interface Seat {
@@ -12,19 +13,22 @@ interface Seat {
 
 /** What each villager is up to. Agents only ever enter through `reconcile`; the frame loop only advances arrivals and wake-ups. */
 export type Activity =
+  /** no agent: the slot is empty and nothing is drawn */
   | { s: "wander" }
   /** every spot is taken, so it waits at the door of the place it was picked for */
   | { s: "loiter"; agent: Agent; job: Job }
   | { s: "commute"; agent: Agent; seat: Seat }
   | { s: "work"; agent: Agent; seat: Seat }
-  /** a null agent is the idle nap: nothing finished, the laptop has just gone quiet */
-  | { s: "bedtime"; agent: Agent | null; bed: number }
-  | { s: "asleep"; agent: Agent | null; bed: number; since: number };
+  | { s: "bedtime"; agent: Agent; bed: number }
+  | { s: "asleep"; agent: Agent; bed: number; since: number };
 
-/** seconds a finished agent's villager sleeps before it gets up and wanders again */
+/** seconds a finished agent's villager sleeps before its slot empties */
 const NAP = 180;
 /** how close counts as there; the villager then settles the rest of the way in */
 const ARRIVED = 0.45;
+/** how high a new agent's villager starts its fall, and how much higher each one after it in the same pulse */
+const SKY = 12;
+const STAGGER = 2.5;
 
 const WANDER: Activity = { s: "wander" };
 const OTHER: Record<Job, Job> = { desk: "gym", gym: "desk" };
@@ -46,11 +50,8 @@ export const POSTS = Object.fromEntries(
   Object.entries(PLACES).map(([p, { spots }]) => [p, spots.map((s: Spot) => post(HOME[p as Place], s))]),
 ) as Record<Place, Post[]>;
 
-/**
- * `acts` is indexed like `ctl.villagers`; `rev` bumps on every change so the bubbles know to
- * re-render; `idle` is whether the last pulse had nothing live although the laptop has reported.
- */
-export const town = { acts: Array.from({ length: VILLAGERS }, (): Activity => WANDER), rev: 0, idle: false };
+/** `acts` is indexed like `ctl.villagers`; `rev` bumps on every change so the bubbles know to re-render. */
+export const town = { acts: Array.from({ length: VILLAGERS }, (): Activity => WANDER), rev: 0 };
 
 function set(v: number, a: Activity) {
   town.acts[v] = a;
@@ -82,7 +83,7 @@ function seatFor(agent: Agent, job: Job): Activity {
   return { s: "loiter", agent, job };
 }
 
-function toBed(v: number, agent: Agent | null) {
+function toBed(v: number, agent: Agent) {
   let bed = free("bed");
   if (bed < 0) {
     // every bed is taken: the longest sleeper gets up for the newcomer, else one still on its way there
@@ -97,7 +98,7 @@ function toBed(v: number, agent: Agent | null) {
   set(v, bed < 0 ? WANDER : { s: "bedtime", agent, bed });
 }
 
-/** Picks who gets up for a new agent: its own sleeper if it is back, else the idlest villager nearest the door. */
+/** Picks the slot for a new agent: its own sleeper if it is back, else an empty slot, else the longest sleeper. */
 function pick(folk: readonly Villager[], id: string, door: Vector3): number {
   const RANK = { wander: 1, asleep: 2, bedtime: 3 } as const;
   let best = -1;
@@ -105,7 +106,7 @@ function pick(folk: readonly Villager[], id: string, door: Vector3): number {
   folk.forEach((f, v) => {
     const a = town.acts[v];
     if (a.s !== "wander" && a.s !== "asleep" && a.s !== "bedtime") return;
-    const key = (a.s !== "wander" && a.agent?.id === id ? 0 : RANK[a.s]) * 100 + arc(f.n, door);
+    const key = (a.s !== "wander" && a.agent.id === id ? 0 : RANK[a.s]) * 100 + arc(f.n, door);
     if (key < bestKey) [best, bestKey] = [v, key];
   });
   return best;
@@ -113,6 +114,7 @@ function pick(folk: readonly Villager[], id: string, door: Vector3): number {
 
 /** Brings the town in line with a fresh pulse. Idempotent: the same pulse twice changes nothing. */
 export function reconcile(pulse: Pulse, folk: readonly Villager[]) {
+  let spawned = 0;
   const live = new Map(pulse.agents.filter((a) => a.phase !== "done").map((a) => [a.id, a]));
   town.acts.forEach((a, v) => {
     if (!held(a)) return;
@@ -129,14 +131,23 @@ export function reconcile(pulse: Pulse, folk: readonly Villager[]) {
     if (town.acts.some((a) => held(a) && a.agent.id === agent.id)) continue;
     const job = jobOf(agent.id);
     const v = pick(folk, agent.id, HOME[job].door);
-    if (v >= 0) set(v, seatFor(agent, job));
+    if (v < 0) continue;
+    if (town.acts[v].s === "wander") drop(folk[v], HOME[job].door, SKY + STAGGER * spawned++);
+    set(v, seatFor(agent, job));
   }
-  town.idle = !live.size && pulse.lastSeen > 0;
-  // nothing live and nobody already in bed: someone naps so the summary has a sleeper to hang on
-  if (town.idle && !town.acts.some(inBed)) {
-    const v = pick(folk, "", HOME.bed.door);
-    if (v >= 0) toBed(v, null);
-  }
+}
+
+const off = new Vector3();
+/** An empty slot comes into being in the sky a step from the door it's headed for, then falls. */
+function drop(f: Villager, door: Vector3, alt: number) {
+  f.n.copy(door);
+  walk(f.n, flatten(scatter(Math.random, off), f.n), 0.6 + Math.random() * 0.8);
+  resolve(f.n, RADIUS, null);
+  toward(f.n, door, f.heading);
+  f.goal = f.skip = f.pin = null;
+  f.lift = f.speed = f.vy = 0;
+  f.alt = alt;
+  f.shown = true;
 }
 
 /** Per frame: arrivals, wake-ups, and where each villager should be heading right now. */
@@ -145,8 +156,8 @@ export function tend(folk: readonly Villager[], now: number) {
     const a = town.acts[v];
     if (a.s === "commute" && arc(f.n, POSTS[a.seat.place][a.seat.i].n) < ARRIVED) set(v, { ...a, s: "work" });
     if (a.s === "bedtime" && arc(f.n, POSTS.bed[a.bed].n) < ARRIVED) set(v, { ...a, s: "asleep", since: now });
-    // while idle the last sleeper stays down: it is the nap
-    if (a.s === "asleep" && now - a.since > NAP && !(town.idle && town.acts.filter(inBed).length === 1)) set(v, WANDER);
+    if (a.s === "asleep" && now - a.since > NAP) set(v, WANDER);
+    f.shown = town.acts[v].s !== "wander";
     route(f, town.acts[v]);
   });
 }

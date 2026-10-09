@@ -53,7 +53,7 @@ export default function Scene({ state, target, onTravel, onOpen, onNext, onSkip 
         show={state.mode === "exploring" || state.mode === "inspecting"}
       />
       <GithubGrid />
-      <Crowd met={state.met} near={near} onOpen={onOpen} />
+      <Crowd near={near} onOpen={onOpen} />
       <Agents />
       {state.mode === "map" && <Globe visited={state.visited} target={target} onTravel={onTravel} />}
       {state.mode === "onboarding" && <IntroBubble step={state.step} onNext={onNext} onSkip={onSkip} />}

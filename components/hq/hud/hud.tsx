@@ -70,7 +70,6 @@ const HINTS: [string, string][] = [
   ["WASD", "walk"],
   ["Click", "go"],
   ["Drag", "look"],
-  ["Bump", "say hi"],
   ["E", "open"],
   ["1–7", "jump"],
   ["M", "map"],

@@ -5,7 +5,6 @@ import {
   type BufferGeometry,
   Euler,
   type Material,
-  type Group,
   type InstancedMesh,
   Matrix4,
   type Mesh,
@@ -27,6 +26,7 @@ import {
   SCALE,
   type Folk,
   type Hat,
+  type Villager,
   animate,
   makeCrowd,
   move,
@@ -37,7 +37,6 @@ import { LANDMARKS, R, arc, flatten, frameAt, steer, toward } from "./planet";
 import { blobTexture } from "./props";
 
 const SPEED = 3.2;
-const GREET = 0.75;
 const TURN = 10;
 
 const folk = makeCrowd(ctl.player);
@@ -46,7 +45,6 @@ ctl.villagers = folk.filter((f) => f.kind === "villager");
 const hatSlots = Object.fromEntries(HATS.map((h) => [h, folk.filter((f) => f.hat === h)])) as Record<Hat, Folk[]>;
 
 const blobMat = new MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false });
-const pipMat = new MeshBasicMaterial({ vertexColors: true });
 const haloMat = new MeshBasicMaterial({ color: ACCENT });
 const haloGeo = new TorusGeometry(0.42, 0.03, 6, 36).rotateX(Math.PI / 2);
 const puffMat = new MeshBasicMaterial({ color: "#fbf6ec", transparent: true, depthWrite: false });
@@ -60,8 +58,15 @@ const WIND = 0.2;
 const PUFF = 0.55;
 const STARTLE = 3.5;
 const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefers-reduced-motion: reduce)");
-/** the player's intro clocks: vertical speed, a free-running hover clock, crouch, flail blend, puff age */
-const drop = { vy: 0, t: 0, wind: 0, flail: 0, puff: Infinity, last: ctl.intro };
+/** the player's intro clocks: vertical speed, a free-running hover clock, crouch, flail blend */
+const drop = { vy: 0, t: 0, wind: 0, flail: 0, last: ctl.intro };
+/** one dust ring for whoever touched down last, the player or an agent dropping in */
+const puffAt = { n: new Vector3(), heading: new Vector3(), t: Infinity };
+function land(f: Folk) {
+  puffAt.n.copy(f.n);
+  puffAt.heading.copy(f.heading);
+  puffAt.t = 0;
+}
 /** seconds of gesture blend, and the idle schedule once the player stands still */
 const BLEND = 0.25;
 const IDLE_AFTER = 3;
@@ -87,7 +92,6 @@ const v = new Vector3();
 const s = new Vector3();
 const dir = new Vector3();
 const input = new Vector3();
-const camDir = new Vector3();
 const right = new Vector3();
 const before = new Vector3();
 const eul = new Euler();
@@ -95,7 +99,8 @@ const rotXZ = (x: number, z: number) => q.setFromEuler(eul.set(x, 0, z));
 // arms pitch before they raise, so a positive pitch always swings the hand forward, hanging or overhead
 const armEul = new Euler(0, 0, 0, "ZYX");
 const headM = new Matrix4();
-const slot: Record<Hat | "pip", number> = { beanie: 0, cap: 0, ears: 0, pip: 0 };
+const slot: Record<Hat, number> = { beanie: 0, cap: 0, ears: 0 };
+const NONE = new Matrix4().makeScale(0, 0, 0);
 
 /** Writes the walk direction to `input` and returns its strength: keys are all or nothing, the stick is analog. */
 function readInput(): number {
@@ -199,17 +204,28 @@ function stepDrop(f: Folk, dt: number) {
       ctl.intro = drop.last = "ground";
       if (still) return;
       f.sqv = Math.min(7, impact * 0.6);
-      drop.puff = 0;
+      land(f);
       // nearby villagers jump in surprise, the closest first
       for (const o of folk) {
         const d = arc(o.n, p.n);
-        if (o.kind === "villager" && d < STARTLE) o.hop = -d * 0.05;
+        if (o.kind === "villager" && o.shown && d < STARTLE) o.hop = -d * 0.05;
       }
     }
   } else {
     drop.flail += (0 - drop.flail) * Math.min(1, dt * 8);
   }
-  if (drop.puff !== Infinity) drop.puff += dt;
+}
+
+/** An agent's villager falling in: gravity, a stretch on the way down, a squash and a puff on touchdown. */
+function stepFall(f: Villager, dt: number) {
+  f.vy -= GRAVITY * dt;
+  f.alt += f.vy * dt;
+  f.sq = Math.max(-0.2, Math.min(0, f.vy * 0.015));
+  f.sqv = 0;
+  if (f.alt > 0 && !reduced?.matches) return;
+  f.sqv = f.alt > 0 ? 0 : Math.min(7, -f.vy * 0.6);
+  f.alt = f.vy = 0;
+  if (!reduced?.matches) land(f);
 }
 
 /**
@@ -266,20 +282,12 @@ function pose(f: Folk, g: Pose, i: number, lift: number): number {
 }
 
 const SHOULDER = 0.18;
-const HI_POP: Keyframe[] = [
-  { opacity: 0, transform: "translateY(6px) scale(0.6)" },
-  { opacity: 1, transform: "translateY(-4px) scale(1.1)", offset: 0.2 },
-  { opacity: 1, transform: "translateY(-10px) scale(1)", offset: 0.75 },
-  { opacity: 0, transform: "translateY(-16px) scale(0.9)" },
-];
-const HI_TIMING: KeyframeAnimationOptions = { duration: 1100, easing: "ease-out" };
 
 interface Meshes {
   head: InstancedMesh | null;
   face: InstancedMesh | null;
   body: InstancedMesh | null;
   nub: InstancedMesh | null;
-  pip: InstancedMesh | null;
   blob: InstancedMesh | null;
   beanie: InstancedMesh | null;
   cap: InstancedMesh | null;
@@ -287,18 +295,16 @@ interface Meshes {
 }
 
 interface CrowdProps {
-  met: ReadonlySet<number>;
   near: StationId | null;
   onOpen: (id: StationId) => void;
 }
 
-/** Every character, the player included, in nine instanced draw calls and one frame loop. */
+/** Every character, the player included, in eight instanced draw calls and one frame loop. */
 const meshes: Meshes = {
   head: null,
   face: null,
   body: null,
   nub: null,
-  pip: null,
   blob: null,
   beanie: null,
   cap: null,
@@ -319,26 +325,17 @@ const LAYERS: [keyof Meshes, BufferGeometry, Material, number][] = [
   ["face", PARTS.face, CLAY, N],
   ["body", PARTS.body, CLAY, N],
   ["nub", PARTS.nub, CLAY, N * 4],
-  ["pip", PARTS.pip, pipMat, N],
   ["blob", PARTS.blob, blobMat, N],
   ...HATS.map((h): [Hat, BufferGeometry, Material, number] => [h, PARTS[h], CLAY, hatSlots[h].length]),
 ];
 
-export function Crowd({ met, near, onOpen }: CrowdProps) {
+export function Crowd({ near, onOpen }: CrowdProps) {
   const halo = useRef<Mesh>(null);
   const puff = useRef<Mesh>(null);
-  const hiGroup = useRef<Group>(null);
-  const hiEl = useRef<HTMLDivElement>(null);
-  const hiFolk = useRef<Folk | null>(null);
-  const metRef = useRef(met);
   const stuck = useMemo(() => ({ t: 0 }), []);
 
   useEffect(() => {
-    metRef.current = met;
-  }, [met]);
-
-  useEffect(() => {
-    const { head, face, body, nub, pip } = meshes;
+    const { head, face, body, nub } = meshes;
     folk.forEach((f, i) => {
       head?.setColorAt(i, f.skin);
       face?.setColorAt(i, PLAIN);
@@ -347,22 +344,25 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
       nub?.setColorAt(i * 4 + 1, f.foot);
       nub?.setColorAt(i * 4 + 2, f.skin);
       nub?.setColorAt(i * 4 + 3, f.skin);
-      pip?.setColorAt(i, PLAIN);
     });
     for (const h of HATS) hatSlots[h].forEach((f, j) => meshes[h]?.setColorAt(j, f.hatColor));
     for (const mesh of Object.values(meshes)) if (mesh?.instanceColor) mesh.instanceColor.needsUpdate = true;
   }, []);
 
-  useFrame(({ camera }, rawDt) => {
+  useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
-    const { head, face, body, nub, pip, blob, beanie, cap, ears } = meshes;
-    if (!head || !face || !body || !nub || !pip || !blob || !beanie || !cap || !ears) return;
-    slot.beanie = slot.cap = slot.ears = slot.pip = 0;
-    camDir.copy(camera.position).normalize();
-    const met = metRef.current;
+    const { head, face, body, nub, blob, beanie, cap, ears } = meshes;
+    if (!head || !face || !body || !nub || !blob || !beanie || !cap || !ears) return;
+    slot.beanie = slot.cap = slot.ears = 0;
 
     for (let i = 0; i < N; i++) {
       const f = folk[i];
+      if (f.kind === "villager" && !f.shown) {
+        for (const m of [head, face, body, blob]) m.setMatrixAt(i, NONE);
+        for (let k = 0; k < 4; k++) nub.setMatrixAt(i * 4 + k, NONE);
+        if (f.hat) meshes[f.hat]?.setMatrixAt(slot[f.hat]++, NONE);
+        continue;
+      }
       let turn = 0;
       let lift = 0;
       /** what the shadow sits on: the ground, or a plinth top for a villager standing on one */
@@ -374,25 +374,16 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
         // gesture bounces lift the whole body, feet and all, unlike the torso-only greeting hop
         lift = ctl.alt + shown.bounce + (ctl.intro === "hover" && !reduced?.matches ? Math.sin(drop.t * 2.2) * 0.07 : 0);
       } else if (f.kind === "keeper") turn = stepKeeper(f, dt);
-      else {
+      else if (f.alt > 0) {
+        stepFall(f, dt);
+        lift = f.alt;
+      } else {
         stepVillager(f, folk, dt, Math.random);
         f.clock += dt;
         chasePose(f.pose, poseOf(f.pin?.move ?? "rest", f.clock, reduced?.matches ? 0 : 1, aim), Math.min(1, dt * 4));
         floor = f.lift;
         lift = f.lift + f.pose.bounce;
         turn = f.turn;
-        if (!ctl.frozen && arc(f.n, ctl.player.n) < GREET && !met.has(f.id) && !ctl.greeted.includes(f.id)) {
-          ctl.greeted.push(f.id);
-          f.hop = 0;
-          hiFolk.current = f;
-          hiEl.current?.animate(HI_POP, HI_TIMING);
-          const g = ctl.gesture.current;
-          if (g !== "hop" && g !== "celebrate") {
-            // wave with the arm on the villager's side; the frame's +x is the character's left
-            const left = v.subVectors(f.n, ctl.player.n).dot(right.crossVectors(ctl.player.n, ctl.player.heading)) > 0;
-            setGesture("greet", left ? -1 : 1);
-          }
-        }
       }
       animate(f, dt, turn);
       const g = poseFor(f);
@@ -407,18 +398,7 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
       head.setMatrixAt(i, skull);
       face.setMatrixAt(i, skull);
       body.setMatrixAt(i, torso);
-      if (f.hat === "beanie") beanie.setMatrixAt(slot.beanie++, skull);
-      else if (f.hat === "cap") cap.setMatrixAt(slot.cap++, skull);
-      else if (f.hat === "ears") ears.setMatrixAt(slot.ears++, skull);
-      const known = f.kind === "villager" && (met.has(f.id) || ctl.greeted.includes(f.id));
-      if (known) {
-        // a pin keeps about the same size on screen, then fades out toward the horizon instead of becoming a speck
-        const d = camera.position.distanceTo(v.copy(f.n).multiplyScalar(R));
-        const facing = f.n.dot(camDir);
-        const k = Math.min(1.3, d / 16) * Math.min(1, Math.max(0, (facing - 0.55) / 0.15));
-        local.compose(v.set(0, HEAD_Y + 0.4, 0), q.identity(), s.setScalar(k));
-        if (k > 0) pip.setMatrixAt(slot.pip++, local.premultiply(torso));
-      }
+      if (f.hat) meshes[f.hat]?.setMatrixAt(slot[f.hat]++, skull);
 
       for (let k = 0; k < 2; k++) {
         const side = k ? 1 : -1;
@@ -435,9 +415,10 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
         let raise = k ? g.armL : g.armR;
         const fwd = swing * 0.6 * g.swing + (k ? g.fwdL : g.fwdR);
         let grow = g.grow;
-        if (f.kind === "player") {
-          raise += (2.3 + Math.sin(drop.t * 26 + k * 2) * 0.35 - raise) * drop.flail;
-          grow = Math.max(grow, drop.flail);
+        const flail = f.kind === "player" ? drop.flail : f.kind === "villager" && f.alt > 0 ? 1 : 0;
+        if (flail) {
+          raise += (2.3 + Math.sin(drop.t * 26 + k * 2 + i) * 0.35 - raise) * flail;
+          grow = Math.max(grow, flail);
         }
         // a raised arm steps out from the shoulder and grows, so the hand clears the head and reads at close range
         local.compose(
@@ -461,28 +442,24 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
         halo.current.visible = ctl.intro === "ground";
         frameAt(f.n, f.heading, halo.current.matrix, 0.04);
       }
-      if (f.kind === "player" && puff.current) {
-        const m = puff.current;
-        const t = drop.puff / PUFF;
-        m.visible = t < 1;
-        if (m.visible) {
-          const e = 1 - (1 - t) ** 3;
-          frameAt(f.n, f.heading, m.matrix, 0.03, 0.5 + 1.6 * e);
-          puffMat.opacity = 0.9 * (1 - t);
-        }
-      }
     }
 
-    const hi = hiFolk.current;
-    if (hi && hiGroup.current) hiGroup.current.position.copy(hi.n).multiplyScalar(R + 1.05);
+    if (puff.current) {
+      const m = puff.current;
+      puffAt.t += dt;
+      const t = puffAt.t / PUFF;
+      m.visible = t < 1;
+      if (m.visible) {
+        const e = 1 - (1 - t) ** 3;
+        frameAt(puffAt.n, puffAt.heading, m.matrix, 0.03, 0.5 + 1.6 * e);
+        puffMat.opacity = 0.9 * (1 - t);
+      }
+    }
 
     head.instanceMatrix.needsUpdate = true;
     face.instanceMatrix.needsUpdate = true;
     body.instanceMatrix.needsUpdate = true;
     nub.instanceMatrix.needsUpdate = true;
-    // only met villagers draw a pin, so strangers cost no triangles
-    pip.count = slot.pip;
-    pip.instanceMatrix.needsUpdate = true;
     blob.instanceMatrix.needsUpdate = true;
     beanie.instanceMatrix.needsUpdate = true;
     cap.instanceMatrix.needsUpdate = true;
@@ -512,16 +489,6 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
         frustumCulled={false}
         renderOrder={2}
       />
-      <group ref={hiGroup}>
-        <Html center zIndexRange={[12, 0]} style={{ pointerEvents: "none" }}>
-          <div
-            ref={hiEl}
-            className="rounded-full bg-hq-accent px-2 py-0.5 text-[11px] font-semibold text-white opacity-0"
-          >
-            hi!
-          </div>
-        </Html>
-      </group>
       {keeperHead && (
         <Html key={near} position={keeperHead} center zIndexRange={[14, 0]}>
           <button

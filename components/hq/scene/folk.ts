@@ -1,4 +1,5 @@
-import { BufferGeometry, Color, ConeGeometry, Matrix4, PlaneGeometry, SphereGeometry, Vector3 } from "three";
+import { BufferGeometry, Color, Matrix4, PlaneGeometry, SphereGeometry, Vector3 } from "three";
+import { MAX_AGENTS } from "@/data/pulse";
 import { STATIONS, type StationId } from "@/data/stations";
 import { ACCENT, TONE, ball, cyl, merge, paint, part, pill, ring, type Part } from "./clay";
 import { IDENTITY } from "./dioramas";
@@ -6,7 +7,8 @@ import { type Gesture, type Pose, blankPose } from "./gesture";
 import { rng, scatter } from "./props";
 import { LANDMARKS, NORTH_POLE, OBSTACLES, R, arc, flatten, plinthLift, resolve, steer, toward, walk } from "./planet";
 
-export const VILLAGERS = 10;
+/** one villager slot per agent the pulse can carry; a slot only shows while an agent holds it */
+export const VILLAGERS = MAX_AGENTS;
 
 /**
  * Character space: feet on y=0, facing +Z, about one unit tall before `SCALE`.
@@ -72,19 +74,13 @@ export const PARTS = {
     part(pill(0.032, 0.14, 2, 6), [-0.125, HEAD_Y + 0.38, 0.045], { rot: [0, 0, 0.22], tone: "#f3c4c4" }),
     part(pill(0.032, 0.14, 2, 6), [0.125, HEAD_Y + 0.38, 0.045], { rot: [0, 0, -0.22], tone: "#f3c4c4" }),
   ]),
-  /** "met" map pin, tip at the origin; crowd.tsx lifts it over the head and sizes it by distance */
-  pip: merge([
-    part(ball(0.1, 7, 4), [0, 0.2, 0], { tone: ACCENT }),
-    part(new ConeGeometry(0.075, 0.16, 7, 1, true), [0, 0.09, 0], { rot: [Math.PI, 0, 0], tone: ACCENT }),
-    part(ball(0.05, 5, 3), [0, 0.27, 0], { scale: [1, 0.6, 1], tone: "#ffffff" }),
-  ]),
   blob: flatPlane(),
 } satisfies Record<string, BufferGeometry>;
 
 export const HATS = ["beanie", "cap", "ears"] as const;
 export type Hat = (typeof HATS)[number];
 
-/** Instance tint that leaves a part's baked vertex colours untouched (face dots, met pin). */
+/** Instance tint that leaves a part's baked vertex colours untouched (face dots). */
 export const PLAIN = new Color("#ffffff");
 
 const colors = (hex: readonly string[]) => hex.map((c) => new Color(c));
@@ -136,6 +132,11 @@ export type Folk = Body &
         /** the work loop's pose, chased toward the pin's move each frame */
         pose: Pose;
         clock: number;
+        /** false while no agent holds this slot: nothing drawn, nothing to bump into */
+        shown: boolean;
+        /** height above the ground while it drops in from the sky, and its vertical speed */
+        alt: number;
+        vy: number;
       }
     | { kind: "keeper"; station: StationId; post: Vector3; rest: Vector3 }
   );
@@ -218,6 +219,9 @@ export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
       lift: 0,
       pose: blankPose(),
       clock: 0,
+      shown: false,
+      alt: 0,
+      vy: 0,
       hat,
       hatColor: pick(hat === "ears" ? EARS : HAT),
       skin: pick(SKIN),
@@ -266,7 +270,7 @@ function roam(f: Villager, crowd: Folk[], dt: number, rand: () => number) {
   push.set(0, 0, 0);
   // all-pairs is fine for ~70 walkers; bucket by cell if the crowd grows into the hundreds
   for (const o of crowd) {
-    if (o === f) continue;
+    if (o === f || (o.kind === "villager" && !o.shown)) continue;
     const c = f.n.dot(o.n);
     if (c < Math.cos(SPACE / R)) continue;
     const d = Math.acos(Math.min(1, c)) * R;

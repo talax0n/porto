@@ -10,7 +10,6 @@ export type Gesture =
   | "idleTap"
   | "idleSway"
   | "hop"
-  | "greet"
   | "celebrate"
   /** villager work loops, played at a desk, gym spot or bed */
   | "type"
@@ -178,16 +177,6 @@ const MOVES: Record<Gesture, Move> = {
       p.swing = 0;
       p.bounce = air * 0.42 * m;
       p.squash = (t < 0.45 ? -air * 0.14 : Math.sin(((t - 0.45) / 0.25) * Math.PI) * 0.16) * m;
-    },
-  },
-  greet: {
-    once: 0.7,
-    set(p, t, m) {
-      const up = swell(t, 0.12, 0.7);
-      p.armR = 0.55 + up * (1.85 + Math.sin(t * 16) * 0.35 * m);
-      p.grow = up;
-      p.swing = 1 - up;
-      p.headYaw = -0.3 * up;
     },
   },
   celebrate: {
