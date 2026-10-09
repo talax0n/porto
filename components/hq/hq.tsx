@@ -31,7 +31,7 @@ export function HQ() {
     <main className="relative h-dvh w-full overflow-hidden bg-white">
       <Scene state={state} target={target} onTravel={travel} onOpen={open} onNext={next} onSkip={skip} />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-4 sm:p-6">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between p-4 sm:p-6">
         <div data-hud className={cn("transition-opacity duration-500", map && "max-sm:opacity-0")}>
           <Wordmark />
         </div>

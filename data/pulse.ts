@@ -64,3 +64,24 @@ export function parsePulse(x: unknown): Pulse | null {
   }
   return { agents: out, lastSeen, runsToday };
 }
+
+const VERB: Record<Kind, string> = {
+  edit: "editing",
+  run: "running",
+  read: "reading",
+  search: "searching",
+  web: "browsing",
+  other: "working",
+};
+
+export const say = (a: Agent) => (a.phase === "tool" ? VERB[a.kind] : a.phase);
+
+const AGO: [number, string][] = [
+  [86_400_000, "d"],
+  [3_600_000, "h"],
+  [60_000, "m"],
+];
+export function ago(ms: number) {
+  const [unit, label] = AGO.find(([u]) => ms >= u) ?? [1, ""];
+  return label ? `${Math.floor(ms / unit)}${label} ago` : "just now";
+}

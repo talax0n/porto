@@ -2,14 +2,18 @@ import { motion } from "framer-motion";
 import { STATIONS, type StationId } from "@/data/stations";
 import { PROFILE } from "@/data/profile";
 import { cn } from "@/lib/utils";
+import { Ps } from "./ps";
 
 export function Wordmark() {
   return (
-    <div>
+    <div className="relative">
       <h1 className="font-display text-2xl font-extrabold leading-none tracking-tight text-hq-ink sm:text-3xl">
         {PROFILE.name}
       </h1>
-      <p className="mt-1.5 text-[11px] tracking-[0.12em] text-hq-mute uppercase">{PROFILE.role}</p>
+      <div className="mt-1.5 text-[11px] tracking-[0.12em] text-hq-mute uppercase">
+        {PROFILE.role}
+        <Ps />
+      </div>
     </div>
   );
 }
