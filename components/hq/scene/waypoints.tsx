@@ -25,9 +25,13 @@ const CHECK_Y = 2;
 /** edge arrows: at most today's target plus this many of the nearest unvisited places */
 const NEAREST = 3;
 const GUIDE_AHEAD = 1.1;
-/** a point at height h clears the planet's limb when its angle from the camera is under both horizon angles combined */
 const horizon = (d: number) => Math.acos(R / d);
-const HORIZON_ARROW = horizon(R + ARROW_Y);
+/** an arrow is gone once its landmark is this close (radians) to the limb, so none hangs in the sky */
+const LIMB_GONE = 0.3;
+const LIMB_FADE = 0.4;
+/** screen margin, in NDC, over which an arrow shrinks away before it touches the edge */
+const EDGE_FADE = 0.1;
+const ease = (v: number) => Math.min(1, Math.max(0, v));
 const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const arrowGeo = merge([
@@ -109,6 +113,7 @@ export function Waypoints({ near, inspecting, visited, target, show }: Waypoints
     const t = clock.elapsedTime;
     const p = ctl.player.n;
     camDir.copy(camera.position).normalize();
+    const limb = horizon(camera.position.length());
     const a = arrows.current;
     const c = checks.current;
     const roaming = on && !ctl.frozen && ctl.intro === "ground";
@@ -122,32 +127,32 @@ export function Waypoints({ near, inspecting, visited, target, show }: Waypoints
       ndc.copy(n).multiplyScalar(R + TAG_Y).project(camera);
       // the top and bottom bands belong to the HUD
       const clear = n.dot(camDir) > 0.5 && ndc.y > -0.72 && ndc.y < 0.72 && Math.abs(ndc.x) < 0.92;
-      // looser than a tag: in view whenever the arrow itself clears the horizon and the window
+      // the one visibility rule: the 3D marker's size, and the edge arrow shows exactly when it hits zero
       ndc.copy(n).multiplyScalar(R + ARROW_Y).project(camera);
-      const seen =
-        Math.acos(n.dot(camDir)) < horizon(camera.position.length()) + HORIZON_ARROW &&
-        Math.abs(ndc.x) < 0.95 &&
-        ndc.y > -0.85 &&
-        ndc.y < 0.9;
+      const vis =
+        ease((limb - LIMB_GONE - Math.acos(Math.min(1, n.dot(camDir)))) / LIMB_FADE) *
+        ease((0.95 - Math.abs(ndc.x)) / EDGE_FADE) *
+        ease((ndc.y + 0.85) / EDGE_FADE) *
+        ease((0.9 - ndc.y) / EDGE_FADE);
       // a keeper's speech bubble owns the screen while it's up
-      mk.edge = roaming && !seen && !talking;
+      mk.edge = roaming && vis <= 0 && !talking;
       dist[i] = mk.edge && !lit.has(id) && !quest ? arc(p, n) : Infinity;
 
       const el = tags.current[i];
-      if (el) el.style.opacity = on && clear && (!focus || id === focus) ? "1" : "0";
+      if (el) el.style.opacity = on && clear && vis > 0 && (!focus || id === focus) ? "1" : "0";
 
       if (!a || !c) continue;
       toward(n, camera.position, fwd);
       const bob = still ? 0 : Math.sin(t * 3 + i * 1.3) * 0.14 * (1 - mk.done);
       const pulse = quest && !still ? 1 + Math.sin(t * 5) * 0.1 : 1;
-      const big = (quest ? 1.4 : 1) * pulse * (on ? 1 : 0);
+      const big = (quest ? 1.4 : 1) * pulse * (on ? vis : 0);
       frameAt(n, fwd, m, ARROW_Y + bob + (quest ? 0.25 : 0), 1);
       a.setMatrixAt(i, m.scale(s3.setScalar(big * (1 - mk.done) + 1e-4)));
       // unvisited arrows breathe toward white, a soft glow without an emissive material
       const glow = still ? 0.1 : (Math.sin(t * 2.4 + i) * 0.5 + 0.5) * (quest ? 0.35 : 0.2);
-      a.setColorAt(i, tint.copy(identity[i]).lerp(white, glow));
+      a.setColorAt(i, tint.copy(identity[i]).lerp(white, Math.max(glow, 1 - vis)));
       frameAt(n, fwd, m, CHECK_Y, 1);
-      c.setMatrixAt(i, m.scale(s3.setScalar((on ? 0.8 : 0) * mk.done + 1e-4)));
+      c.setMatrixAt(i, m.scale(s3.setScalar((on ? 0.8 * vis : 0) * mk.done + 1e-4)));
     }
     if (a && c) {
       a.instanceMatrix.needsUpdate = true;
