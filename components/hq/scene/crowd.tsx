@@ -41,6 +41,7 @@ const TURN = 10;
 
 const folk = makeCrowd(ctl.player);
 const N = folk.length;
+ctl.villagers = folk.filter((f) => f.kind === "villager");
 const hatSlots = Object.fromEntries(HATS.map((h) => [h, folk.filter((f) => f.hat === h)])) as Record<Hat, Folk[]>;
 
 const blobMat = new MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false });

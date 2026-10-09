@@ -15,12 +15,15 @@ export type GameState =
   /** dropping onto the planet; the scene owns the fall and reports touchdown with `landed` */
   | ({ mode: "landing" } & Progress)
   | ({ mode: "exploring"; near: StationId | null } & Progress)
-  | ({ mode: "inspecting"; station: StationId } & Progress);
+  | ({ mode: "inspecting"; station: StationId } & Progress)
+  /** the full map, a modal over a paused world: walking under it would move the very thing it charts */
+  | ({ mode: "map" } & Progress);
 
 export type GameAction =
   | { type: "approach"; id: StationId | null }
   | { type: "open"; id: StationId }
   | { type: "close" }
+  | { type: "map" }
   | { type: "greet"; ids: readonly number[] }
   | { type: "next" }
   | { type: "skip" }
@@ -40,15 +43,15 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, near: action.id };
     case "open":
       if (state.mode === "onboarding" || state.mode === "landing") return state;
-      return {
-        mode: "inspecting",
-        station: action.id,
-        visited: new Set(state.visited).add(action.id),
-        met: state.met,
-      };
+      return { ...progress(state), mode: "inspecting", station: action.id, visited: new Set(state.visited).add(action.id) };
     case "close":
-      if (state.mode !== "inspecting") return state;
-      return { mode: "exploring", visited: state.visited, met: state.met, near: state.station };
+      if (state.mode === "inspecting") return { mode: "exploring", near: state.station, ...progress(state) };
+      if (state.mode === "map") return { mode: "exploring", near: null, ...progress(state) };
+      return state;
+    case "map":
+      if (state.mode === "map") return { mode: "exploring", near: null, ...progress(state) };
+      if (state.mode !== "exploring" && state.mode !== "inspecting") return state;
+      return { mode: "map", ...progress(state) };
     case "greet":
       if (action.ids.every((id) => state.met.has(id))) return state;
       return { ...state, met: new Set([...state.met, ...action.ids]) };
@@ -99,6 +102,8 @@ export interface Controls {
   intro: "hover" | "fall" | "ground";
   /** player's height above the ground, in world units */
   alt: number;
+  /** filled by the crowd once it spawns, so the map can chart villagers without importing the scene */
+  villagers: readonly { n: Vector3; id: number }[];
 }
 
 const spawn = dirAt(8, 90);
@@ -118,6 +123,7 @@ export const ctl: Controls = {
   celebrate: { active: false, t: 0 },
   intro: "fall",
   alt: DROP_IN,
+  villagers: [],
 };
 
 export function setTarget(n: Vector3, station: StationId | null) {

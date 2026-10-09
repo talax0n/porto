@@ -72,6 +72,11 @@ export function useHQ() {
     dispatch({ type: "replay" });
   }, []);
 
+  const toggleMap = useCallback(() => {
+    ctl.keys.clear();
+    dispatch({ type: "map" });
+  }, []);
+
   useEffect(() => {
     if (state.visited.size) localStorage.setItem(VISITED_KEY, JSON.stringify([...state.visited]));
   }, [state.visited]);
@@ -98,7 +103,8 @@ export function useHQ() {
 
   // the stations party waits for the last panel to close so it plays out in view
   const close = useCallback(() => {
-    if (stateRef.current.mode !== "inspecting") return;
+    const { mode } = stateRef.current;
+    if (mode !== "inspecting" && mode !== "map") return;
     dispatch({ type: "close" });
     if (partyOwedRef.current) {
       partyOwedRef.current = false;
@@ -167,7 +173,10 @@ export function useHQ() {
         return;
       }
       if (mode === "landing") return;
-      if (MOVE_KEYS.has(e.code)) {
+      if (e.code === "KeyM") {
+        e.preventDefault();
+        toggleMap();
+      } else if (MOVE_KEYS.has(e.code)) {
         if (stateRef.current.mode === "exploring") {
           e.preventDefault();
           ctl.keys.add(e.code);
@@ -191,7 +200,7 @@ export function useHQ() {
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", clear);
     };
-  }, [interact, travel, close, next, skip]);
+  }, [interact, travel, close, next, skip, toggleMap]);
 
-  return { state, toast, travel, open, close, next, skip, replay };
+  return { state, toast, travel, open, close, next, skip, replay, toggleMap };
 }

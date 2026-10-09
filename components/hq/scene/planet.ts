@@ -147,3 +147,24 @@ export function resolve(n: Vector3, radius: number, ...riders: Vector3[]) {
     walk(n, away, reach - d, ...riders);
   }
 }
+
+const tan = new Vector3();
+
+/**
+ * Azimuthal equidistant projection around `center`: tangent `up` maps to +y and screen-right
+ * (up × center, as the walk keys define it) to +x. Distance from the origin is the surface angle
+ * in radians, so the whole planet fits in a disc of radius π.
+ */
+export function mapXY(center: Vector3, up: Vector3, p: Vector3, out: { x: number; y: number }) {
+  const a = Math.acos(Math.min(1, Math.max(-1, center.dot(p))));
+  flatten(tan.copy(p), center);
+  if (tan.lengthSq() === 0) {
+    // the antipode has no bearing, so any point on the rim will do
+    out.x = 0;
+    out.y = a > 1 ? -a : 0;
+  } else {
+    out.x = tan.dot(side.crossVectors(up, center)) * a;
+    out.y = tan.dot(up) * a;
+  }
+  return out;
+}

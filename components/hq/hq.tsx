@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Dock, Hint, Quest, Replay, Toast, Wordmark } from "./hud/hud";
+import { FullMap, Minimap } from "./hud/map";
 import { Panel } from "./hud/panel";
 import { useHQ } from "./use-hq";
 
@@ -14,7 +15,7 @@ const Scene = dynamic(() => import("./scene/scene"), {
 });
 
 export function HQ() {
-  const { state, toast, travel, open, close, next, skip, replay } = useHQ();
+  const { state, toast, travel, open, close, next, skip, replay, toggleMap } = useHQ();
   const current = state.mode === "inspecting" ? state.station : state.mode === "exploring" ? state.near : null;
   // the intro has the stage to itself; the first render is a drop-in too, so nothing flashes before it
   const intro = state.mode === "onboarding" || state.mode === "landing";
@@ -45,6 +46,17 @@ export function HQ() {
           <Replay onReplay={replay} />
         </div>
       )}
+
+      {state.mode === "exploring" && (
+        <div className="absolute right-5 bottom-5 z-20 max-sm:right-3 max-sm:bottom-16">
+          <Minimap visited={state.visited} met={state.met} target={null} onOpen={toggleMap} />
+        </div>
+      )}
+      <AnimatePresence>
+        {state.mode === "map" && (
+          <FullMap visited={state.visited} met={state.met} target={null} onTravel={travel} onClose={close} />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {state.mode === "inspecting" && <Panel key={state.station} id={state.station} onClose={close} />}

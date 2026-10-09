@@ -64,7 +64,7 @@ const flower = (rand: () => number): Part[] => [
   part(ball(0.08, 5, 3), [0, 0.04, 0], { tone: PAL.flower[Math.floor(rand() * PAL.flower.length)] }),
 ];
 
-const PLAZA = 1.6;
+export const PLAZA = 1.6;
 const plaza = (): Part[] => [
   part(cyl(0.6, 0.68, 0.26), [0, 0.13, 0]),
   part(ring(0.56, 0.07), [0, 0.27, 0], { rot: [Math.PI / 2, 0, 0] }),

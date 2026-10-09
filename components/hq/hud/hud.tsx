@@ -108,6 +108,7 @@ const HINTS: [string, string][] = [
   ["Bump", "say hi"],
   ["E", "open"],
   ["1–7", "jump"],
+  ["M", "map"],
   ["Esc", "close"],
 ];
 
