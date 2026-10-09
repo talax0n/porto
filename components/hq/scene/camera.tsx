@@ -15,6 +15,7 @@ import { ctl, setPing, setTarget } from "../game";
 import { keyLight } from "./daylight";
 import { RADIUS } from "./folk";
 import { lampHits, toggleLamp } from "./lamps";
+import { introScale } from "./intro";
 import { DENY, MOVE } from "./ping";
 import { LANDMARKS, R, blocked, flatten } from "./planet";
 
@@ -158,7 +159,7 @@ export function CameraRig() {
       camera.up.lerp(p, c).normalize();
       // the bubble needs room beside the character on wide screens and above it on phones
       if (narrow) oy += (-size.height * CLOSE_DROP - oy) * c;
-      else ox += (Math.min(220, size.width * 0.14) - ox) * c;
+      else ox += (Math.min(220 * introScale(size.width, size.height), size.width * 0.14) - ox) * c;
     }
 
     const want = ctl.globe.open ? 1 : 0;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import { motion } from "framer-motion";
 import { type Group, Vector3 } from "three";
@@ -17,6 +17,11 @@ const touch =
 const reduced =
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** The 3D close-up grows with the screen, so the bubble grows with it; phones and small laptops stay at 1. */
+export function introScale(width: number, height: number) {
+  return Math.min(1.75, Math.max(1, Math.min(height / 720, width / 1152)));
+}
 
 interface IntroBubbleProps {
   step: number;
@@ -38,6 +43,7 @@ export function IntroBubble({ step, onNext, onSkip }: IntroBubbleProps) {
     else g.position.addScaledVector(side.crossVectors(ctl.north, n), 0.62);
   });
 
+  const scale = useThree(({ size }) => introScale(size.width, size.height));
   const typing = useTyping(step);
   const narrow = typeof window !== "undefined" && window.innerWidth < 640;
   // short phones can't fit four bubbles above the head without reaching the wordmark
@@ -45,6 +51,8 @@ export function IntroBubble({ step, onNext, onSkip }: IntroBubbleProps) {
   return (
     <group ref={anchor}>
       <Html zIndexRange={[16, 0]}>
+        {/* scaled about the anchor, so the bubble's offsets from the head scale with it */}
+        <div style={{ transform: `scale(${scale})`, transformOrigin: "0 0" }}>
         <div
           role="dialog"
           aria-label="Intro"
@@ -81,6 +89,7 @@ export function IntroBubble({ step, onNext, onSkip }: IntroBubbleProps) {
             );
           })}
           <IntroControls step={step} onNext={onNext} onSkip={onSkip} className="mt-1 pl-1 max-sm:hidden" />
+        </div>
         </div>
       </Html>
     </group>

@@ -17,6 +17,7 @@ export const CHANGELOG: Release[] = [
       "This Updates board, so you can see what changed.",
       "Stations moved closer together, so nothing hides on the far side of the planet anymore.",
       "Street lamps light up at night, and you can click one to switch it on or off.",
+      "The welcome chat grows with your screen, so it's easier to read on big displays.",
     ],
   },
   {
