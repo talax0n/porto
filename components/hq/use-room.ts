@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type Emote, PRESETS, ROOMS_TRIED, type PeerId, type ServerMsg, type Vec, parseServer } from "@/data/room";
+import { type Emote, PRESETS, ROOMS_TRIED, type PeerId, type ServerMsg, type Vec, cleanName, nameFor, parseServer } from "@/data/room";
 import { ctl, setGesture } from "./game";
-import type { Visitor } from "./scene/folk";
+import { type Visitor, lookOf } from "./scene/folk";
 
 /** the multiplayer room's address; unset means the site is single-player and opens no socket */
 const URL = process.env.NEXT_PUBLIC_ROOM_URL;
@@ -11,16 +11,34 @@ const HEARTBEAT = 5_000;
 /** a tab hidden this long drops its socket, and rejoins on return */
 const HIDDEN_FOR = 30_000;
 const BACKOFF = [1_000, 2_000, 5_000, 15_000, 30_000];
-/** how long a line stays in the log; its bubble above the speaker's head is shorter, see `speech.tsx` */
-export const LINE_LIFE = 8_000;
+/** how many lines the log remembers; a bubble above the speaker's head lasts much less, see `speech.tsx` */
+const SCROLLBACK = 30;
+const NAME_KEY = "hq:name";
 const EMOTE_FOR = 2_500;
 
 export interface Line {
   key: number;
   id: PeerId;
   text: string;
+  /** the speaker's name and shirt colour as they were when the line arrived, so it still reads after they leave */
+  name: string;
+  color: string | null;
+  mine: boolean;
   /** performance.now() when it arrived */
   at: number;
+}
+
+/** The name saved on this device, or a fresh friendly one that is saved for next time. */
+function savedName(): string {
+  try {
+    const kept = cleanName(localStorage.getItem(NAME_KEY));
+    if (kept) return kept;
+    const made = nameFor(crypto.getRandomValues(new Uint32Array(1))[0]);
+    localStorage.setItem(NAME_KEY, made);
+    return made;
+  } catch {
+    return nameFor(crypto.getRandomValues(new Uint32Array(1))[0]);
+  }
 }
 
 export interface Room {
@@ -28,6 +46,11 @@ export interface Room {
   online: number | null;
   me: PeerId | null;
   lines: readonly Line[];
+  /** what everyone in the room is called, you included; the name the server echoed, or one made from their look */
+  names: Readonly<Record<PeerId, string>>;
+  /** your own name; changes once the server confirms a rename */
+  myName: string | null;
+  rename: (name: string) => void;
   say: (text: string) => void;
   preset: (p: number) => void;
   emote: (e: Emote) => void;
@@ -38,6 +61,9 @@ const OFF: Room = {
   online: null,
   me: null,
   lines: [],
+  names: {},
+  myName: null,
+  rename: () => {},
   say: () => {},
   preset: () => {},
   emote: () => {},
@@ -55,6 +81,8 @@ export function useRoom(active: boolean): Room {
   const [online, setOnline] = useState<number | null>(null);
   const [me, setMe] = useState<PeerId | null>(null);
   const [lines, setLines] = useState<readonly Line[]>([]);
+  const [names, setNames] = useState<Readonly<Record<PeerId, string>>>({});
+  const [myName, setMyName] = useState<string | null>(null);
   const muted = useRef(new Set<PeerId>());
   const sock = useRef<WebSocket | null>(null);
   const ready = useRef(false);
@@ -71,6 +99,17 @@ export function useRoom(active: boolean): Room {
     let retry: ReturnType<typeof setTimeout> | undefined;
     let away: ReturnType<typeof setTimeout> | undefined;
     const seats = new Map<PeerId, Visitor>();
+    /** what the server said each person is called; a person it never named gets one made from their look */
+    const given = new Map<PeerId, string>();
+    let self: PeerId | null = null;
+    let mine = savedName();
+    const labelOf = (pid: PeerId) => (pid === self ? mine : (given.get(pid) ?? nameFor(seats.get(pid)?.look ?? 0)));
+    const publish = () => {
+      const all: Record<PeerId, string> = {};
+      for (const pid of seats.keys()) all[pid] = labelOf(pid);
+      if (self) all[self] = mine;
+      setNames(all);
+    };
     const sent = { at: 0, n: ctl.player.n.clone(), h: ctl.player.heading.clone() };
 
     const seat = (p: { id: PeerId; look: number; n: Vec; h: Vec }) => {
@@ -85,6 +124,7 @@ export function useRoom(active: boolean): Room {
       v.gest = "rest";
       v.shown = v.fresh = true;
       seats.set(p.id, v);
+      publish();
     };
     const unseat = (pid: PeerId) => {
       const v = seats.get(pid);
@@ -92,10 +132,14 @@ export function useRoom(active: boolean): Room {
       v.peer = null;
       v.shown = v.fresh = false;
       seats.delete(pid);
+      given.delete(pid);
+      publish();
     };
     const clear = () => {
       for (const pid of [...seats.keys()]) unseat(pid);
       ready.current = false;
+      self = null;
+      setNames({});
       setMe(null);
       setOnline(null);
     };
@@ -103,9 +147,17 @@ export function useRoom(active: boolean): Room {
 
     const speak = (pid: PeerId, text: string) => {
       if (muted.current.has(pid)) return;
-      const line = { key: key.current++, id: pid, text, at: performance.now() };
-      setLines((ls) => [...ls.slice(-7), line]);
-      setTimeout(() => setLines((ls) => ls.filter((l) => l !== line)), LINE_LIFE);
+      const v = seats.get(pid);
+      const line: Line = {
+        key: key.current++,
+        id: pid,
+        text,
+        name: labelOf(pid),
+        color: v ? lookOf(v.look).shirt.getStyle() : null,
+        mine: pid === self,
+        at: performance.now(),
+      };
+      setLines((ls) => [...ls.slice(1 - SCROLLBACK), line]);
     };
 
     const handle = (m: ServerMsg) => {
@@ -113,8 +165,12 @@ export function useRoom(active: boolean): Room {
         case "hello":
           ready.current = true;
           attempt = 0;
+          self = m.you;
           setMe(m.you);
+          setMyName(mine);
           for (const p of m.peers) seat(p);
+          // an old worker ignores this and never echoes, so you keep the name you came with
+          ws?.send(JSON.stringify({ t: "name", name: mine }));
           count();
           // announce where we stand, so the others see us the moment we arrive
           sent.at = -Infinity;
@@ -143,6 +199,16 @@ export function useRoom(active: boolean): Room {
           if (v) v.emote = m.e;
           break;
         }
+        case "name":
+          if (m.id === self) {
+            mine = m.name;
+            setMyName(m.name);
+            try {
+              localStorage.setItem(NAME_KEY, m.name);
+            } catch {}
+          } else given.set(m.id, m.name);
+          publish();
+          break;
         case "full":
           // the server closes right after; onclose then tries the next room
           room++;
@@ -222,6 +288,7 @@ export function useRoom(active: boolean): Room {
       s?.close();
       clear();
       setLines([]);
+      setMyName(null);
     };
   }, [active]);
 
@@ -230,6 +297,7 @@ export function useRoom(active: boolean): Room {
   }, []);
   const say = useCallback((text: string) => post({ t: "say", text }), [post]);
   const preset = useCallback((p: number) => p >= 0 && p < PRESETS.length && post({ t: "preset", p }), [post]);
+  const rename = useCallback((name: string) => post({ t: "name", name }), [post]);
   const emote = useCallback(
     (e: Emote) => {
       post({ t: "emote", e });
@@ -246,6 +314,6 @@ export function useRoom(active: boolean): Room {
   }, []);
 
   return URL && active
-    ? { online, me, lines, say, preset, emote, mute }
+    ? { online, me, lines, names, myName, rename, say, preset, emote, mute }
     : OFF;
 }

@@ -8,6 +8,17 @@ export interface Release {
 /** newest first */
 export const CHANGELOG: Release[] = [
   {
+    version: "1.4.0",
+    date: "2026-10-10",
+    title: "Names and a better chat",
+    notes: [
+      "Everyone now has a name floating over their head, and so do I, so you know what others see.",
+      "You get a friendly random name the first time you visit, and you can change it from the chat.",
+      "The chat is now a proper card with names, a short history, and a send button.",
+      "With the chat closed, new messages show as a small preview that fades away.",
+    ],
+  },
+  {
     version: "1.3.0",
     date: "2026-10-10",
     title: "Company and a board",

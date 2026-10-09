@@ -61,7 +61,7 @@ export default function Scene({ state, target, room, onTravel, onOpen, onNext, o
       <GithubGrid />
       <Crowd near={near} onOpen={onOpen} />
       <Agents />
-      <Speech lines={room.lines} me={room.me} onMute={room.mute} />
+      <Speech lines={room.lines} names={room.names} me={room.me} onMute={room.mute} />
       {state.mode === "map" && <Globe visited={state.visited} target={target} onTravel={onTravel} />}
       {state.mode === "onboarding" && <IntroBubble step={state.step} onNext={onNext} onSkip={onSkip} />}
       <Ping />
