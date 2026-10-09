@@ -85,7 +85,8 @@ function landmark(id: StationId, at: [number, number]): Landmark {
   const b = new Vector3().crossVectors(n, hub);
   const z = hub.clone().sub(b).normalize();
   const half = PLINTH_SIZE[id] / 2;
-  const doorAt = (half + 1.2) * LANDMARK_SCALE;
+  // the hub-facing corner reaches half·√2 out, which on a big plinth like the HQ passes half + 1.2
+  const doorAt = Math.max(half + 1.2, half * Math.SQRT2 + 0.5) * LANDMARK_SCALE;
   const door = offset(n, hub, 0, doorAt);
   const keeper = offset(n, hub, -0.85, doorAt - 0.25);
   const frame = frameAt(n, z, new Matrix4(), 0, LANDMARK_SCALE);
@@ -121,7 +122,7 @@ const local = new Vector3();
 /** Height of the plinth top above the ground at n, or 0 off every plinth: what a walker steps up onto. */
 export function plinthLift(n: Vector3): number {
   for (const l of LIST) {
-    if (n.dot(l.n) < 0.95) continue;
+    if (n.dot(l.n) < 0.9) continue;
     local.copy(n).multiplyScalar(R).applyMatrix4(l.inverse);
     if (Math.abs(local.x) > l.half || Math.abs(local.z) > l.half) continue;
     return local.setY(PLINTH_HEIGHT).applyMatrix4(l.frame).length() - R;

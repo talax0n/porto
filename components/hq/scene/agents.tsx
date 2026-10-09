@@ -45,8 +45,8 @@ function lineOf(a: Activity): Line | null {
 }
 
 /**
- * One villager per live agent, dropped from the sky by a desk in projects or a machine in the gym;
- * a finished one walks to a bed in the about house, sleeps it off, then its slot empties.
+ * One villager per live agent, dropped from the sky into the projects HQ to work a desk or a gym machine;
+ * a finished one walks to a bed in its nap corner, sleeps it off, then its slot empties.
  */
 export function Agents() {
   usePulse();

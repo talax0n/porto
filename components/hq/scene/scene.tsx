@@ -19,7 +19,7 @@ import { Ping } from "./ping";
 import { Speech } from "./speech";
 import { Waypoints } from "./waypoints";
 import { World } from "./world";
-import { Screens } from "./workplaces";
+import { Rigs, Screens } from "./workplaces";
 
 interface SceneProps {
   state: GameState;
@@ -48,6 +48,7 @@ export default function Scene({ state, target, room, onTravel, onOpen, onNext, o
       <Daylight />
       <World near={near} inspecting={inspecting} visited={state.visited} />
       <Screens />
+      <Rigs />
       <Waypoints
         near={near}
         inspecting={inspecting}

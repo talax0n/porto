@@ -63,8 +63,9 @@ function set(v: number, a: Activity) {
   town.rev++;
 }
 
-/** Stable per agent across polls: about two sessions in three get a desk, the rest the gym. */
-const jobOf = (id: string): Job => (parseInt(id, 16) % 3 < 2 ? "desk" : "gym");
+const DESKS = PLACES.desk.spots.length;
+/** Stable per agent across polls: sessions split between desk and gym in proportion to their spots. */
+const jobOf = (id: string): Job => (parseInt(id, 16) % (DESKS + PLACES.gym.spots.length) < DESKS ? "desk" : "gym");
 
 const held = (a: Activity): a is Extract<Activity, { agent: Agent }> =>
   a.s === "loiter" || a.s === "commute" || a.s === "work";
@@ -188,8 +189,11 @@ function route(f: Villager, a: Activity) {
   }
 }
 
-/** Whether someone is at desk i typing, for its screen. */
-export const deskAgent = (i: number): Agent | null => {
-  const a = town.acts.find((a) => a.s === "work" && a.seat.place === "desk" && a.seat.i === i);
-  return a && a.s === "work" ? a.agent : null;
-};
+/** The villager slot settled at spot i of a place (working, or asleep in a bed), or -1. A loop, as rigs ask every frame. */
+export function occupant(place: Place, i: number): number {
+  for (let v = 0; v < town.acts.length; v++) {
+    const a = town.acts[v];
+    if (a.s === "work" ? a.seat.place === place && a.seat.i === i : a.s === "asleep" && place === "bed" && a.bed === i) return v;
+  }
+  return -1;
+}

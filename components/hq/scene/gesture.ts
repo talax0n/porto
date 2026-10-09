@@ -16,6 +16,8 @@ export type Gesture =
   | "run"
   | "lift"
   | "press"
+  | "pedal"
+  | "punch"
   | "sleep";
 
 export const IDLES = ["idleLook", "idleStretch", "idleTap", "idleSway"] as const satisfies readonly Gesture[];
@@ -231,6 +233,35 @@ const MOVES: Record<Gesture, Move> = {
       p.grow = 0.2 + up * 0.8;
       p.swing = 0;
       p.squash = -up * 0.05;
+    },
+  },
+  pedal: {
+    // hands on the bars, the left foot riding its pedal; the bike's cranks turn on the same 6 rad/s
+    set(p, t, m) {
+      const s = Math.sin(t * 6) * m;
+      p.armR = p.armL = 0.3;
+      p.fwdR = p.fwdL = 1.2;
+      p.swing = 0;
+      p.tap = 0.5 + s * 0.5;
+      p.lean = s * 0.05;
+      p.bounce = Math.abs(s) * 0.02;
+      p.squash = 0.05;
+    },
+  },
+  punch: {
+    // alternating jabs at 7 rad/s, which the bag's swing follows
+    set(p, t, m) {
+      const s = Math.sin(t * 7) * m;
+      const r = Math.max(0, s);
+      const l = Math.max(0, -s);
+      p.armR = p.armL = 0.9;
+      p.fwdR = 0.9 + r * 0.65;
+      p.fwdL = 0.9 + l * 0.65;
+      p.grow = 0.2 + (r + l) * 0.8;
+      p.swing = 0;
+      p.lean = (l - r) * 0.08;
+      p.bounce = Math.abs(Math.sin(t * 3.5)) * 0.03 * m;
+      p.headYaw = (l - r) * 0.15;
     },
   },
   sleep: {

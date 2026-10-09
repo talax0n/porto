@@ -1,16 +1,27 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { type BufferGeometry, CanvasTexture, Matrix4, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace } from "three";
+import {
+  BatchedMesh,
+  type BufferGeometry,
+  CanvasTexture,
+  Color,
+  Matrix4,
+  MeshBasicMaterial,
+  PlaneGeometry,
+  SRGBColorSpace,
+} from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Agent } from "@/data/pulse";
-import { PLACES, PLINTH_HEIGHT, SCREEN } from "./dioramas";
+import { ctl } from "../game";
+import { CLAY, merge } from "./clay";
+import { AMBIENCE, type Drive, IDENTITY, PLACES, PLINTH_HEIGHT, type Place, type Rig, SCREEN, type Spot, hash } from "./dioramas";
 import { LANDMARKS } from "./planet";
 import { freeze } from "./world";
-import { deskAgent } from "./work";
+import { occupant, town } from "./work";
 
 const DESKS = PLACES.desk.spots;
 /** every desk's screen is one cell of a shared canvas, so all of them cost one texture and one draw call */
-const COLS = 2;
+const COLS = 3;
 const ROWS = Math.ceil(DESKS.length / COLS);
 const W = 256;
 const H = Math.round((W * SCREEN.h) / SCREEN.w);
@@ -19,13 +30,6 @@ const LINE = 13;
 const FPS = 8;
 const EDITOR = ["#7fb8e6", "#f6b26b", "#b49be0", "#8fcf9a", "#f08a7e", "#d9dde8"];
 const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefers-reduced-motion: reduce)");
-
-/** Cheap integer hash to [0, 1), so line j of a desk always looks the same as it scrolls past. */
-function hash(n: number) {
-  n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
-  n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
-  return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
-}
 
 function screens() {
   const frame = LANDMARKS[PLACES.desk.station].frame;
@@ -99,6 +103,11 @@ function paint(g: CanvasRenderingContext2D, i: number, agent: Agent | null, tick
   g.restore();
 }
 
+function deskAgent(i: number): Agent | null {
+  const a = town.acts[occupant("desk", i)];
+  return a?.s === "work" ? a.agent : null;
+}
+
 let made: { geo: BufferGeometry; mat: MeshBasicMaterial; tex: CanvasTexture; g: CanvasRenderingContext2D } | null = null;
 /** Built on first use, in the browser, and kept for the page's life like the crowd's materials. */
 function kit() {
@@ -133,4 +142,82 @@ export function Screens() {
   });
 
   return <mesh ref={freeze} geometry={geo} material={mat} />;
+}
+
+interface Mount {
+  rig: Rig;
+  /** plinth, spot and pivot transforms, baked */
+  base: Matrix4;
+  seat: { place: Place; i: number } | null;
+  /** batch instance per copy */
+  ids: number[];
+}
+
+/** Every rig in the HQ as one batched mesh: one draw call, a matrix per copy per frame. */
+function mount(): { mesh: BatchedMesh; mounts: Mount[] } {
+  const step = new Matrix4();
+  const list: Omit<Mount, "ids">[] = [];
+  for (const [place, { station, spots }] of Object.entries(PLACES) as [Place, (typeof PLACES)[Place]][]) {
+    const frame = LANDMARKS[station].frame;
+    spots.forEach((s: Spot, i) => {
+      for (const rig of s.rigs ?? []) {
+        const base = frame
+          .clone()
+          .multiply(step.makeTranslation(s.at[0], PLINTH_HEIGHT + s.at[1], s.at[2]))
+          .multiply(step.makeRotationY(s.yaw))
+          .multiply(step.makeTranslation(...rig.at));
+        list.push({ rig, base, seat: { place, i } });
+      }
+    });
+  }
+  for (const rig of AMBIENCE.rigs) {
+    const base = LANDMARKS[AMBIENCE.station].frame.clone().multiply(step.makeTranslation(rig.at[0], PLINTH_HEIGHT + rig.at[1], rig.at[2]));
+    list.push({ rig, base, seat: null });
+  }
+  const geos = list.map(({ rig }) => merge(rig.parts(IDENTITY[AMBIENCE.station])));
+  const copies = list.reduce((n, { rig }) => n + (rig.count ?? 1), 0);
+  const verts = geos.reduce((n, g) => n + g.getAttribute("position").count, 0);
+  const mesh = new BatchedMesh(copies, verts, 0, CLAY);
+  mesh.sortObjects = false;
+  mesh.frustumCulled = false;
+  const mounts = list.map((m, j) => {
+    const geo = mesh.addGeometry(geos[j]);
+    geos[j].dispose();
+    return { ...m, ids: Array.from({ length: m.rig.count ?? 1 }, () => mesh.addInstance(geo)) };
+  });
+  return { mesh, mounts };
+}
+
+let rigged: ReturnType<typeof mount> | null = null;
+const drive: Drive = { t: 0, busy: false, m: 1, live: 0 };
+const pose = new Matrix4();
+const tint = new Color();
+
+/** The HQ's moving furniture: driven by whoever is at it, plus the always-on ambience. */
+export function Rigs() {
+  const { mesh, mounts } = useMemo(() => (rigged ??= mount()), []);
+  const clock = useRef(0);
+
+  useFrame((_, dt) => {
+    const m = reduced?.matches ? 0 : 1;
+    clock.current += dt * m;
+    let live = 0;
+    for (const a of ctl.pulse.agents) if (a.phase !== "done") live++;
+    drive.m = m;
+    drive.live = live;
+    for (const { rig, base, seat, ids } of mounts) {
+      const v = seat ? occupant(seat.place, seat.i) : -1;
+      drive.busy = v >= 0;
+      drive.t = drive.busy ? ctl.villagers[v].clock : clock.current;
+      for (let k = 0; k < ids.length; k++) {
+        rig.pose(drive, k, pose);
+        mesh.setMatrixAt(ids[k], pose.premultiply(base));
+        if (!rig.tint) continue;
+        rig.tint(drive, k, tint);
+        mesh.setColorAt(ids[k], tint);
+      }
+    }
+  });
+
+  return <primitive object={mesh} />;
 }
