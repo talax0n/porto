@@ -35,7 +35,8 @@ function authorized(req: Request, secret: string) {
 }
 
 export async function POST(req: Request) {
-  const secret = process.env.PULSE_SECRET;
+  // pasted dashboard values often carry a trailing newline, which no header can ever match
+  const secret = process.env.PULSE_SECRET?.trim();
   if (!secret) return Response.json({ error: "PULSE_SECRET is not set" }, { status: 503 });
   if (!authorized(req, secret)) return Response.json({ error: "unauthorized" }, { status: 401 });
   const pulse = parsePulse(await req.json().catch(() => null));
