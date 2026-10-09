@@ -7,6 +7,7 @@ import { Dock, Hint, Quest, Replay, Toast, Wordmark } from "./hud/hud";
 import { EdgeArrows, MapChrome, Minimap } from "./hud/map";
 import { Today } from "./hud/today";
 import { Panel } from "./hud/panel";
+import { IntroControls } from "./scene/intro";
 import { useHQ } from "./use-hq";
 
 // The DOM shell paints first; three.js loads behind a plain placeholder.
@@ -52,6 +53,15 @@ export function HQ() {
         <AnimatePresence>{toast && <Toast key={toast.id} text={toast.text} />}</AnimatePresence>
       </div>
 
+      {state.mode === "onboarding" && (
+        <IntroControls
+          bar
+          step={state.step}
+          onNext={next}
+          onSkip={skip}
+          className="absolute inset-x-0 bottom-0 z-30 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:hidden"
+        />
+      )}
       {!intro && (
         <div
           data-hud

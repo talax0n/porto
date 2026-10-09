@@ -33,6 +33,8 @@ const lookAt = new Vector3();
 const view = { x: 0, y: 0, dist: DIST };
 /** close-up on the hovering player, eye level and front-on, so only white sky sits behind it */
 const CLOSE_BACK = 5.2;
+/** phones drop the close-up's subject this share of the screen below centre, under the chat thread */
+const CLOSE_DROP = 0.08;
 /** how far into the intro close-up the camera is; negative until the first frame picks a side */
 let close = -1;
 const closePos = new Vector3();
@@ -121,8 +123,8 @@ export function CameraRig() {
       camera.position.lerp(closePos, c);
       lookAt.lerp(closeAt, c);
       camera.up.lerp(p, c).normalize();
-      // the bubble needs room beside the character on wide screens and below it on phones
-      if (narrow) oy += (size.height * 0.1 - oy) * c;
+      // the bubble needs room beside the character on wide screens and above it on phones
+      if (narrow) oy += (-size.height * CLOSE_DROP - oy) * c;
       else ox += (Math.min(220, size.width * 0.14) - ox) * c;
     }
 
