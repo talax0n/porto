@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Dock, Hint, Quest, Replay, Toast, Wordmark } from "./hud/hud";
-import { EdgeArrows, FullMap, Minimap } from "./hud/map";
+import { EdgeArrows, MapChrome, Minimap } from "./hud/map";
 import { Today } from "./hud/today";
 import { Panel } from "./hud/panel";
 import { useHQ } from "./use-hq";
@@ -23,13 +23,14 @@ export function HQ() {
   const visit = quests?.find((q) => q.quest.kind === "visit" && !q.done)?.quest;
   /** today's unfinished visit quest, which the map and the waypoints point at */
   const target = visit?.kind === "visit" ? visit.station : null;
+  const map = state.mode === "map";
 
   return (
     <main className="relative h-dvh w-full overflow-hidden bg-white">
       <Scene state={state} target={target} onTravel={travel} onOpen={open} onNext={next} onSkip={skip} />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-4 sm:p-6">
-        <div data-hud>
+        <div data-hud className={cn("transition-opacity duration-500", map && "max-sm:opacity-0")}>
           <Wordmark />
         </div>
         <div
@@ -38,6 +39,7 @@ export function HQ() {
             "flex flex-col items-end gap-3 transition-opacity duration-500",
             (intro || state.mode === "inspecting") && "sm:opacity-0",
             intro && "opacity-0",
+            map && "opacity-30 max-sm:opacity-0",
           )}
           aria-hidden={intro}
         >
@@ -51,7 +53,13 @@ export function HQ() {
       </div>
 
       {!intro && (
-        <div data-hud className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 sm:bottom-5">
+        <div
+          data-hud
+          className={cn(
+            "absolute bottom-3 left-1/2 z-20 -translate-x-1/2 transition-opacity duration-500 sm:bottom-5",
+            map && "opacity-40",
+          )}
+        >
           <Dock visited={state.visited} current={current} onTravel={travel} />
         </div>
       )}
@@ -68,11 +76,7 @@ export function HQ() {
           <Minimap visited={state.visited} met={state.met} target={target} onOpen={toggleMap} />
         </div>
       )}
-      <AnimatePresence>
-        {state.mode === "map" && (
-          <FullMap visited={state.visited} met={state.met} target={target} onTravel={travel} onClose={close} />
-        )}
-      </AnimatePresence>
+      <AnimatePresence>{map && <MapChrome onClose={close} />}</AnimatePresence>
 
       <AnimatePresence>
         {state.mode === "inspecting" && <Panel key={state.station} id={state.station} onClose={close} />}

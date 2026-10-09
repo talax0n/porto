@@ -8,6 +8,7 @@ import type { GameState } from "../game";
 import { CameraRig, ClickToMove } from "./camera";
 import { Confetti } from "./confetti";
 import { Crowd } from "./crowd";
+import { Globe } from "./globe";
 import { GithubGrid } from "./github-grid";
 import { IntroBubble } from "./intro";
 import { Ping } from "./ping";
@@ -32,7 +33,7 @@ export default function Scene({ state, target, onTravel, onOpen, onNext, onSkip 
       flat
       dpr={dpr}
       gl={{ antialias: true, powerPreference: "high-performance" }}
-      camera={{ fov: 30, near: 0.5, far: 80, position: [0, 30, 20] }}
+      camera={{ fov: 30, near: 0.5, far: 160, position: [0, 30, 20] }}
       // clip, not hidden: focusing a button in an <Html> bubble would otherwise scroll the whole canvas away
       style={{ position: "absolute", inset: 0, touchAction: "none", overflow: "clip" }}
     >
@@ -45,10 +46,11 @@ export default function Scene({ state, target, onTravel, onOpen, onNext, onSkip 
         inspecting={inspecting}
         visited={state.visited}
         target={target}
-        show={state.mode !== "onboarding" && state.mode !== "landing"}
+        show={state.mode === "exploring" || state.mode === "inspecting"}
       />
       <GithubGrid />
       <Crowd met={state.met} near={near} onOpen={onOpen} />
+      {state.mode === "map" && <Globe visited={state.visited} target={target} onTravel={onTravel} />}
       {state.mode === "onboarding" && <IntroBubble step={state.step} onNext={onNext} onSkip={onSkip} />}
       <Ping />
       <Confetti />

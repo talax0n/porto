@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Check, Navigation2, X } from "lucide-react";
+import { Navigation2, X } from "lucide-react";
 import { Vector3 } from "three";
 import { STATIONS, type StationId } from "@/data/stations";
 import { cn } from "@/lib/utils";
@@ -26,8 +26,6 @@ const FULL = Math.PI;
  */
 const spread = (d: number, range: number) => (range === FULL ? Math.sin(d / 2) / Math.sin(FULL / 2) : d / range);
 const REDRAW_MS = 66;
-/** the full map's rim in percent of its width; the 6px canvas inset is about 1.2% of a ~500px card */
-const LABEL_SCALE = 48.8;
 const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefers-reduced-motion: reduce)");
 const at = { x: 0, y: 0 };
 const right = new Vector3();
@@ -174,74 +172,34 @@ export function Minimap({ onOpen, ...charted }: Charted & { onOpen: () => void }
   );
 }
 
-interface FullMapProps extends Charted {
-  onTravel: (id: StationId) => void;
-  onClose: () => void;
-}
-
-/** The whole planet as one disc around the player. The world is paused underneath, so labels sit still. */
-export function FullMap({ onTravel, onClose, ...charted }: FullMapProps) {
-  const canvas = useChart(FULL, charted, true);
-  const spots = useMemo(
-    () =>
-      STATIONS.map((s) => {
-        const { x, y } = mapXY(ctl.player.n, ctl.north, LANDMARKS[s.id].n, { x: 0, y: 0 });
-        const d = Math.hypot(x, y);
-        const k = d > 0 ? (LABEL_SCALE * spread(d, FULL)) / d : 0;
-        return { s, left: 50 + x * k, top: 50 - y * k };
-      }),
-    [],
-  );
+/** The map's header; the globe, its labels and the drag all live in the scene. */
+export function MapChrome({ onClose }: { onClose: () => void }) {
   return (
-    <motion.div
+    <motion.header
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: reduced?.matches ? 0 : 0.18 }}
-      className="absolute inset-0 z-40 grid place-items-center bg-white/55 backdrop-blur-[2px]"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      transition={{ duration: reduced?.matches ? 0 : 0.2 }}
+      role="dialog"
+      aria-label="Map"
+      className="absolute top-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-hq-line bg-white/90 py-1.5 pr-1.5 pl-4 text-hq-ink shadow-[0_12px_30px_-18px_rgba(0,0,0,0.25)] backdrop-blur sm:top-6"
     >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="Map"
-        className="w-[min(520px,calc(100vw-24px),calc(100dvh-140px))] rounded-3xl border border-hq-line bg-white p-5 text-hq-ink shadow-[0_24px_60px_-24px_rgba(0,0,0,0.18)] max-sm:p-3"
+      <h2 className="font-display text-lg font-extrabold leading-none tracking-tight">Map</h2>
+      <p className="whitespace-nowrap text-[11px] text-hq-mute">
+        Drag to spin · <span className="pointer-coarse:hidden">Click</span>
+        <span className="hidden pointer-coarse:inline">Tap</span> a place to go
+      </p>
+      <kbd className="rounded-md border border-hq-line px-1.5 py-0.5 text-[10px] text-hq-mute pointer-coarse:hidden">M</kbd>
+      <button
+        type="button"
+        onClick={onClose}
+        autoFocus
+        aria-label="Close map"
+        className="grid size-8 place-items-center rounded-full border border-hq-line transition-colors hover:bg-hq-bg pointer-coarse:size-11"
       >
-        <header className="mb-3 flex items-center gap-3">
-          <h2 className="flex-1 font-display text-2xl font-extrabold leading-none tracking-tight">Map</h2>
-          <p className="text-[11px] text-hq-mute max-sm:hidden">Pick a place to go</p>
-          <kbd className="rounded-md border border-hq-line px-1.5 py-0.5 text-[10px] text-hq-mute pointer-coarse:hidden">M</kbd>
-          <button
-            type="button"
-            onClick={onClose}
-            autoFocus
-            aria-label="Close map"
-            className="grid place-items-center rounded-full border border-hq-line p-1.5 transition-colors hover:bg-hq-bg pointer-coarse:size-11"
-          >
-            <X className="size-4" />
-          </button>
-        </header>
-        <div className="relative aspect-square w-full">
-          <canvas ref={canvas} className="size-full" aria-hidden />
-          <ul aria-label="Places">
-            {spots.map(({ s, left, top }) => (
-              <li key={s.id} className="absolute -translate-x-1/2 translate-y-2.5" style={{ left: `${left}%`, top: `${top}%` }}>
-                <button
-                  type="button"
-                  onClick={() => onTravel(s.id)}
-                  aria-label={`Go to ${s.label}${charted.visited.has(s.id) ? ", visited" : ""}`}
-                  className="flex min-h-7 items-center gap-1 whitespace-nowrap rounded-full border bg-white px-2 py-0.5 text-[11px] font-medium shadow-[0_6px_16px_-10px_rgba(0,0,0,0.35)] transition-colors hover:border-hq-accent pointer-coarse:min-h-11 pointer-coarse:px-3"
-                  style={{ borderColor: s.id === charted.target ? ACCENT : undefined }}
-                >
-                  {charted.visited.has(s.id) && <Check className="size-3 text-hq-accent" strokeWidth={3} />}
-                  <span className={cn(s.id === charted.target && "text-hq-accent")}>{s.label}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-    </motion.div>
+        <X className="size-4" />
+      </button>
+    </motion.header>
   );
 }
 

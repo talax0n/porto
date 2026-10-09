@@ -1,4 +1,4 @@
-import { Color, type ColorRepresentation, Vector3 } from "three";
+import { Color, type ColorRepresentation, Vector2, Vector3 } from "three";
 import { INTRO } from "@/data/onboarding";
 import { type DayLog, type Streak, extendStreak, freshDay, questRows } from "@/data/quests";
 import type { StationId } from "@/data/stations";
@@ -154,6 +154,11 @@ export interface Controls {
   edges: (HTMLElement | null)[];
   /** the one move-command marker; a new click rewrites it in place */
   ping: { n: Vector3; t: number; kind: "move" | "deny"; color: Color };
+  /**
+   * The map's orbit view. `dir` points from the planet centre to the camera, `up` is screen-up,
+   * `spin` is drag inertia in rad/s about screen-up and screen-right, `t` how far the camera has flown out.
+   */
+  globe: { open: boolean; t: number; dir: Vector3; up: Vector3; spin: Vector2 };
 }
 
 const spawn = dirAt(8, 90);
@@ -177,6 +182,7 @@ export const ctl: Controls = {
   villagers: [],
   edges: [],
   ping: { n: new Vector3(), t: -Infinity, kind: "move", color: new Color() },
+  globe: { open: false, t: 0, dir: new Vector3(), up: new Vector3(), spin: new Vector2() },
 };
 
 /** `t` is performance.now() in seconds, the clock the marker's frame loop reads too. */

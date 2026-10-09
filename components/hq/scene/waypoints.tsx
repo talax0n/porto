@@ -90,7 +90,7 @@ const done = new Float32Array(N);
  * How far the camera ray to `a` clears the planet before reaching it: negative once the ground
  * hides it. Measured at the ray's closest approach to the centre, or at `a` if that lies beyond.
  */
-function clearance(cam: Vector3, a: Vector3) {
+export function clearance(cam: Vector3, a: Vector3) {
   ray.subVectors(a, cam);
   const t = ease(-cam.dot(ray) / ray.lengthSq());
   return ray.multiplyScalar(t).add(cam).length() - R;
@@ -144,7 +144,9 @@ export function Waypoints({ near, inspecting, visited, target, show }: Waypoints
     camera.matrixWorld.extractBasis(camX, camY, camZ);
     const a = arrows.current;
     const c = checks.current;
-    const roaming = on && !ctl.frozen && ctl.intro === "ground";
+    // nothing points anywhere until the camera is back from the map's globe view
+    const back = 1 - ctl.globe.t;
+    const roaming = on && !ctl.frozen && ctl.intro === "ground" && back === 1;
     // the HUD's top and bottom bands count as off screen; the arrow rises from its tip, so the bottom needs no margin
     const top = 1 - (2 * INSET.top) / size.height - MARGIN;
     const bottom = -1 + (2 * INSET.bottom) / size.height;
@@ -166,7 +168,7 @@ export function Waypoints({ near, inspecting, visited, target, show }: Waypoints
       const over = Math.abs(ndc.x) - side;
       const slide = over > 0 && halfW > 1e-4 ? (-Math.sign(ndc.x) * Math.min(over, halfW) * HALF) / halfW : 0;
       const inside = Math.min(side + Math.max(0, halfW) - Math.abs(ndc.x), top - ndc.y, ndc.y - bottom);
-      const v = (vis[i] = on && ahead ? open * ease(inside / FADE) : 0);
+      const v = (vis[i] = on && ahead ? open * ease(inside / FADE) * back : 0);
       // edge arrows point from the screen centre at the anchor, or along the walk there once it's over the limb
       let sx = ahead ? ndc.x : -ndc.x;
       let sy = ahead ? ndc.y : -ndc.y;

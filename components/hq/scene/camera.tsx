@@ -1,6 +1,15 @@
 import { useEffect, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { DirectionalLight, type Object3D, type PerspectiveCamera, Raycaster, Sphere, Vector2, Vector3 } from "three";
+import {
+  DirectionalLight,
+  type Object3D,
+  type PerspectiveCamera,
+  Quaternion,
+  Raycaster,
+  Sphere,
+  Vector2,
+  Vector3,
+} from "three";
 import { STATIONS, type StationId } from "@/data/stations";
 import { ctl, setPing, setTarget } from "../game";
 import { RADIUS } from "./folk";
@@ -29,6 +38,21 @@ let close = -1;
 const closePos = new Vector3();
 const closeAt = new Vector3();
 const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefers-reduced-motion: reduce)");
+/** seconds for the fly out to the map's globe view and back */
+const GLOBE_TIME = 0.6;
+/** the globe's radius on screen, roofs included, with a margin for the map header */
+const GLOBE_FIT = (R + 1.5) * 1.12;
+const GLOBE_DROP = 48;
+let globe = 0;
+const from = new Vector3();
+const swing = new Quaternion();
+const part = new Quaternion();
+
+/** Distance at which the whole planet fits the narrower of the two fields of view. */
+function globeDist(cam: PerspectiveCamera) {
+  const half = (cam.fov * Math.PI) / 360;
+  return GLOBE_FIT / Math.sin(Math.min(half, Math.atan(Math.tan(half) * cam.aspect)));
+}
 
 /**
  * Messenger-style follow cam: it hovers behind the player along the carried `ctl.north`, so the
@@ -68,6 +92,8 @@ export function CameraRig() {
       desired.copy(ctl.player.n);
     }
     if (narrow) dist *= 1.05;
+    // the map's header sits over the top of the globe, so the globe sits a little lower
+    if (ctl.globe.open) oy = -GLOBE_DROP;
 
     aim.lerp(desired, k).normalize();
     // ease toward the carried north; a half-turn needs a sideways nudge or the lerp never leaves home
@@ -76,8 +102,8 @@ export function CameraRig() {
     if (flatten(north, aim).lengthSq() === 0) north.copy(ctl.north);
     view.dist += (dist - view.dist) * k;
 
-    const want = ctl.intro === "hover" ? 1 : 0;
-    close = close < 0 || reduced?.matches ? want : close + (want - close) * k;
+    const hover = ctl.intro === "hover" ? 1 : 0;
+    close = close < 0 || reduced?.matches ? hover : close + (hover - close) * k;
     const c = close * close * (3 - 2 * close);
 
     lookAt.copy(aim).multiplyScalar(R + 0.5);
@@ -98,6 +124,19 @@ export function CameraRig() {
       // the bubble needs room beside the character on wide screens and below it on phones
       if (narrow) oy += (size.height * 0.1 - oy) * c;
       else ox += (Math.min(220, size.width * 0.14) - ox) * c;
+    }
+
+    const want = ctl.globe.open ? 1 : 0;
+    globe = reduced?.matches ? want : clamp(globe + Math.sign(want - globe) * (dt / GLOBE_TIME), 0, 1);
+    const g = (ctl.globe.t = globe * globe * (3 - 2 * globe));
+    if (g > 0) {
+      // swing around the planet rather than straight through it, which a spun globe would ask for
+      from.copy(camera.position).normalize();
+      swing.setFromUnitVectors(from, ctl.globe.dir);
+      const len = camera.position.length() + (globeDist(cam) - camera.position.length()) * g;
+      camera.position.copy(from).applyQuaternion(part.identity().slerp(swing, g)).multiplyScalar(len);
+      lookAt.multiplyScalar(1 - g);
+      camera.up.lerp(ctl.globe.up, g).normalize();
     }
     camera.lookAt(lookAt);
     view.x += (ox - view.x) * k;
