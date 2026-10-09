@@ -2,10 +2,14 @@ import type { BufferGeometry } from "three";
 import type { StationId } from "@/data/stations";
 import { EXPERIENCE } from "@/data/experience";
 import { AWARDS } from "@/data/awards";
-import { PLINTH_HEIGHT, PLINTH_SIZE } from "./layout";
 import { TONE, ball, box, cone, cyl, merge, part, pill, ring, type Part } from "./clay";
 
 const { white, light, mid, dark } = TONE;
+
+export const PLINTH_SIZE = 3.2;
+export const PLINTH_HEIGHT = 0.4;
+/** The plinth runs this far below the ground so its corners stay buried where the planet curves away. */
+const SKIRT = 0.5;
 const H = Math.PI / 2;
 
 /** Dioramas leave the plinth's front-right corner (x,z > 0.55) free for the progress tile. */
@@ -141,6 +145,7 @@ const BUILDERS: Record<StationId, () => Part[]> = {
 };
 
 export function buildStation(id: StationId): BufferGeometry {
-  const plinth = part(box(PLINTH_SIZE, PLINTH_HEIGHT, PLINTH_SIZE, 0.14), [0, -PLINTH_HEIGHT / 2, 0]);
+  const h = PLINTH_HEIGHT + SKIRT;
+  const plinth = part(box(PLINTH_SIZE, h, PLINTH_SIZE, 0.14), [0, -PLINTH_HEIGHT - SKIRT + h / 2, 0]);
   return merge([plinth, ...BUILDERS[id]()], [0, PLINTH_HEIGHT, 0]);
 }

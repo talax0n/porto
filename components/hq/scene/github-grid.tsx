@@ -1,24 +1,21 @@
 import { useEffect, useRef } from "react";
-import { useThree } from "@react-three/fiber";
-import { Object3D, type InstancedMesh } from "three";
-import { STATION_BY_ID } from "@/data/stations";
+import { BoxGeometry, Object3D, type InstancedMesh } from "three";
 import { useContributions } from "../contributions";
-import { CLAY, TONE, box, paint } from "./clay";
-import { PLINTH_HEIGHT } from "./layout";
-import { bakeShadows } from "./shadows";
+import { CLAY, TONE, paint } from "./clay";
+import { PLINTH_HEIGHT } from "./dioramas";
+import { LANDMARKS } from "./planet";
 
 const WEEKS = 16;
 const DAYS = 7;
 const PITCH = 0.165;
 const CELL = 0.14;
-const geo = paint(box(CELL, 1, CELL, 0.03).clone(), TONE.white);
+// plain boxes: rounded ones cost 160 triangles a cell, 112 cells, for corners too small to see
+const geo = paint(new BoxGeometry(CELL, 1, CELL), TONE.white);
 
 /** The last 16 weeks as extruded clay cells, one instanced draw call. */
 export function GithubGrid() {
   const load = useContributions();
   const ref = useRef<InstancedMesh>(null);
-  const gl = useThree((s) => s.gl);
-  const [px, pz] = STATION_BY_ID.github.plinth;
 
   useEffect(() => {
     const mesh = ref.current;
@@ -36,18 +33,16 @@ export function GithubGrid() {
       }
     }
     mesh.instanceMatrix.needsUpdate = true;
-    bakeShadows(gl);
-  }, [load, gl]);
+  }, [load]);
 
   return (
     <instancedMesh
       ref={ref}
       args={[geo, CLAY, WEEKS * DAYS]}
-      position={[px, 0, pz]}
+      matrix={LANDMARKS.github.frame}
+      matrixAutoUpdate={false}
       frustumCulled={false}
-      castShadow
-      receiveShadow
-      userData={{ stationId: "github" }}
+      userData={{ landmark: true }}
     />
   );
 }

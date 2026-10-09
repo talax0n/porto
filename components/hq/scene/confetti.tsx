@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Color, Object3D, type InstancedMesh } from "three";
+import { Color, Object3D, Vector3, type InstancedMesh } from "three";
 import { ctl } from "../game";
 import { ACCENT, CLAY, TONE, box, paint } from "./clay";
+import { R } from "./planet";
 
 const COUNT = 140;
 const GRAVITY = 9;
@@ -11,15 +12,20 @@ const dummy = new Object3D();
 const palette = [new Color("#ffffff"), new Color(ACCENT), new Color(TONE.light), new Color(ACCENT)];
 
 interface Bit {
+  /** launch velocity in the player's frame: right, up along the normal, forward */
   v: [number, number, number];
   spin: [number, number, number];
 }
 
-/** One burst of clay cubes from the marble. Idle outside the burst, so zero per-frame cost. */
+const up = new Vector3();
+const fwd = new Vector3();
+const side = new Vector3();
+const origin = new Vector3();
+
+/** One burst of clay cubes from the player. Idle outside the burst, so zero per-frame cost. */
 export function Confetti() {
   const mesh = useRef<InstancedMesh>(null);
   const bits = useRef<Bit[]>([]);
-  const origin = useRef({ x: 0, z: 0 });
   const seen = useRef(false);
 
   useEffect(() => {
@@ -35,7 +41,10 @@ export function Confetti() {
     if (!m) return;
     if (cel.active && !seen.current) {
       seen.current = true;
-      origin.current = { x: ctl.player.x, z: ctl.player.z };
+      up.copy(ctl.player.n);
+      fwd.copy(ctl.player.heading);
+      side.crossVectors(up, fwd);
+      origin.copy(up).multiplyScalar(R + 0.5);
       bits.current = Array.from({ length: COUNT }, () => {
         const a = Math.random() * Math.PI * 2;
         const out = 1 + Math.random() * 3.2;
@@ -54,14 +63,15 @@ export function Confetti() {
       return;
     }
     bits.current.forEach((b, i) => {
-      dummy.position.set(
-        origin.current.x + b.v[0] * t,
-        0.8 + b.v[1] * t - 0.5 * GRAVITY * t * t,
-        origin.current.z + b.v[2] * t,
-      );
+      const h = b.v[1] * t - 0.5 * GRAVITY * t * t;
+      dummy.position
+        .copy(origin)
+        .addScaledVector(side, b.v[0] * t)
+        .addScaledVector(up, h)
+        .addScaledVector(fwd, b.v[2] * t);
       dummy.rotation.set(b.spin[0] * t, b.spin[1] * t, b.spin[2] * t);
       const s = Math.max(0, 1 - Math.max(0, t - 1.8) / 0.8);
-      dummy.scale.setScalar(dummy.position.y < 0 ? 0 : s);
+      dummy.scale.setScalar(h < -0.5 ? 0 : s);
       dummy.updateMatrix();
       m.setMatrixAt(i, dummy.matrix);
     });

@@ -1,26 +1,14 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
-import {
-  CanvasTexture,
-  Color,
-  Euler,
-  type BufferGeometry,
-  Matrix4,
-  Mesh,
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  type Object3D,
-  PlaneGeometry,
-  Quaternion,
-  Vector3,
-} from "three";
+import { Color, type InstancedMesh, Matrix4, MeshBasicMaterial, type Object3D, Vector3 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { STATIONS, type Station, type StationId } from "@/data/stations";
 import { ctl } from "../game";
-import { ACCENT, CLAY, box, cyl, merge, part, type Part } from "./clay";
-import { buildStation } from "./dioramas";
-import { PLINTH_HEIGHT, PLINTH_SIZE } from "./layout";
+import { ACCENT, CLAY, TONE, box, paint } from "./clay";
+import { PLINTH_HEIGHT, buildStation } from "./dioramas";
+import { LANDMARKS, R } from "./planet";
+import { blobTexture, buildDecals, buildGround, softSquare } from "./props";
 
 /** Static props never move again, so skip their per-frame matrix work. */
 export function freeze(o: Object3D | null) {
@@ -29,52 +17,15 @@ export function freeze(o: Object3D | null) {
   o.updateMatrix();
 }
 
-function pathGeometry(): BufferGeometry {
-  const parts: Part[] = [part(cyl(1.3, 1.3, 0.06), [0, 0.03, 0])];
-  for (const { position: [x, z] } of STATIONS) {
-    const len = Math.hypot(x, z);
-    parts.push(
-      part(box(len, 0.06, 0.7, 0.03), [x / 2, 0.03, z / 2], { rot: [0, -Math.atan2(z, x), 0] }),
-      part(cyl(0.75, 0.75, 0.06), [x, 0.03, z]),
-    );
-  }
-  return merge(parts);
-}
-
-function softSquare(): CanvasTexture {
-  const c = document.createElement("canvas");
-  c.width = c.height = 128;
-  const g = c.getContext("2d")!;
-  g.shadowColor = "#000";
-  g.shadowBlur = 22;
-  g.shadowOffsetX = 1000;
-  g.fillStyle = "#000";
-  g.beginPath();
-  g.roundRect(32 - 1000, 32, 64, 64, 10);
-  g.fill();
-  return new CanvasTexture(c);
-}
-
-/** One draw call of soft footprints under every plinth, standing in for baked contact shadows. */
-function footprintGeometry(): BufferGeometry {
-  const size = PLINTH_SIZE * 2;
-  const flat = new Matrix4();
-  const planes = STATIONS.map(({ plinth: [x, z] }) => {
-    const g = new PlaneGeometry(size, size);
-    flat.compose(
-      new Vector3(x - 0.25, 0.012, z - 0.25),
-      new Quaternion().setFromEuler(new Euler(-Math.PI / 2, 0, 0)),
-      new Vector3(1, 1, 1),
-    );
-    return g.applyMatrix4(flat);
-  });
-  return mergeGeometries(planes, false);
-}
-
 const baseTile = new Color("#e9e7e2");
 const accent = new Color(ACCENT);
 const POP = 0.45;
-const tileGeo = box(0.85, 0.06, 0.85, 0.06);
+const tileGeo = paint(box(0.85, 0.06, 0.85, 0.06).clone(), TONE.white);
+const tileAt = new Matrix4().makeTranslation(1.05, PLINTH_HEIGHT + 0.03, 1.05);
+const m = new Matrix4();
+const scale = new Matrix4();
+const tint = new Color();
+const camDir = new Vector3();
 
 interface TileState {
   lit: number;
@@ -88,23 +39,23 @@ interface WorldProps {
 }
 
 export function World({ near, inspecting, visited }: WorldProps) {
-  const stationGeos = useMemo(() => STATIONS.map((s) => buildStation(s.id)), []);
-  const tagY = useMemo(
-    () => stationGeos.map((g) => (g.computeBoundingBox(), g.boundingBox!.max.y + 1)),
-    [stationGeos],
-  );
-  const paths = useMemo(() => pathGeometry(), []);
-  const footprints = useMemo(() => footprintGeometry(), []);
-  const footMat = useMemo(
-    () => new MeshBasicMaterial({ map: softSquare(), transparent: true, opacity: 0.5, depthWrite: false, color: "#3a3226" }),
+  const ground = useMemo(() => buildGround(), []);
+  const landmarks = useMemo(
+    () => mergeGeometries(STATIONS.map((s) => buildStation(s.id).applyMatrix4(LANDMARKS[s.id].frame)), false),
     [],
   );
-  const tileMats = useMemo(
-    () => STATIONS.map(() => new MeshStandardMaterial({ color: baseTile, roughness: 0.85, metalness: 0 })),
+  const decals = useMemo(() => buildDecals(), []);
+  const squareMat = useMemo(
+    () => new MeshBasicMaterial({ map: softSquare(), transparent: true, opacity: 0.45, depthWrite: false, color: "#3a3226" }),
     [],
   );
-  const tileMeshes = useRef<(Mesh | null)[]>([]);
-  const tiles = useRef<TileState[]>(STATIONS.map(() => ({ lit: 0, pop: POP })));
+  const roundMat = useMemo(
+    () => new MeshBasicMaterial({ map: blobTexture(), transparent: true, opacity: 0.6, depthWrite: false }),
+    [],
+  );
+  const tiles = useRef<InstancedMesh>(null);
+  const tileState = useRef<TileState[]>(STATIONS.map(() => ({ lit: 0, pop: POP })));
+  const tags = useRef<(HTMLDivElement | null)[]>([]);
   const seen = useRef(new Set<StationId>());
   const live = useRef({ near, inspecting });
 
@@ -116,83 +67,94 @@ export function World({ near, inspecting, visited }: WorldProps) {
     STATIONS.forEach((s, i) => {
       if (visited.has(s.id) && !seen.current.has(s.id)) {
         seen.current.add(s.id);
-        tiles.current[i].pop = 0;
+        tileState.current[i].pop = 0;
       }
     });
   }, [visited]);
 
-  useFrame((_, rawDt) => {
+  useFrame(({ camera }, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
     const k = 1 - Math.exp(-dt * 6);
     const { near: nearId, inspecting: focus } = live.current;
     const cel = ctl.celebrate;
     if (cel.active) cel.t += dt;
-    tiles.current.forEach((t, i) => {
+    camDir.copy(camera.position).normalize();
+    const mesh = tiles.current;
+    for (let i = 0; i < STATIONS.length; i++) {
       const id = STATIONS[i].id;
+      const t = tileState.current[i];
       const on = seen.current.has(id) ? 1 : 0;
       const hot = id === nearId || id === focus ? 1 : 0;
       t.lit += (on - t.lit) * k;
-      tileMats[i].color.lerpColors(baseTile, accent, t.lit);
-      tileMats[i].emissive.copy(accent).multiplyScalar(t.lit * 0.35 + hot * 0.12);
       if (t.pop < POP) t.pop += dt;
       const pulseT = cel.t - i * 0.08;
-      const bump = Math.sin(Math.PI * Math.min(1, Math.max(0, t.pop / POP))) * (t.pop < POP ? 1 : 0);
+      const bump = t.pop < POP ? Math.sin((Math.PI * t.pop) / POP) : 0;
       const pulse = pulseT > 0 && pulseT < POP ? Math.sin((Math.PI * pulseT) / POP) : 0;
-      const s = 1 + 0.22 * bump + 0.18 * pulse + hot * 0.04;
-      tileMeshes.current[i]?.scale.set(s, 1 + 0.5 * (bump + pulse), s);
-    });
+      const sx = 1 + 0.22 * bump + 0.18 * pulse + hot * 0.06;
+      if (mesh) {
+        m.multiplyMatrices(LANDMARKS[id].frame, tileAt).multiply(scale.makeScale(sx, 1 + 0.5 * (bump + pulse), sx));
+        mesh.setMatrixAt(i, m);
+        mesh.setColorAt(i, tint.lerpColors(baseTile, accent, t.lit));
+      }
+      // hide tags on the far side of the planet
+      const el = tags.current[i];
+      if (el) el.style.opacity = LANDMARKS[id].n.dot(camDir) > 0.5 ? "1" : "0";
+    }
+    if (mesh) {
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.instanceColor!.needsUpdate = true;
+    }
     if (cel.t > 2.6) cel.active = false;
   });
 
   return (
     <>
-      <mesh ref={freeze} geometry={footprints} material={footMat} renderOrder={1} />
-      <mesh ref={freeze} geometry={paths} material={CLAY} receiveShadow />
+      <mesh ref={freeze} geometry={ground} material={CLAY} />
+      <mesh ref={freeze} geometry={decals.squares} material={squareMat} renderOrder={1} />
+      <mesh ref={freeze} geometry={decals.rounds} material={roundMat} renderOrder={1} />
+      <mesh ref={freeze} geometry={landmarks} material={CLAY} userData={{ landmark: true }} />
+      <instancedMesh
+        ref={tiles}
+        args={[tileGeo, CLAY, STATIONS.length]}
+        frustumCulled={false}
+        userData={{ landmark: true }}
+      />
       {STATIONS.map((s, i) => (
-        <group key={s.id}>
-          <mesh
-            ref={freeze}
-            geometry={stationGeos[i]}
-            material={CLAY}
-            position={[s.plinth[0], 0, s.plinth[1]]}
-            castShadow
-            receiveShadow
-            userData={{ stationId: s.id }}
-          />
-          <mesh
-            ref={(m) => {
-              tileMeshes.current[i] = m;
-            }}
-            geometry={tileGeo}
-            material={tileMats[i]}
-            position={[s.plinth[0] + 1.05, PLINTH_HEIGHT + 0.03, s.plinth[1] + 1.05]}
-            userData={{ stationId: s.id }}
-          />
-          <Tag station={s} y={tagY[i]} near={near === s.id} lit={visited.has(s.id)} />
-        </group>
+        <Tag
+          key={s.id}
+          station={s}
+          near={near === s.id}
+          lit={visited.has(s.id)}
+          bind={(el) => {
+            tags.current[i] = el;
+          }}
+        />
       ))}
     </>
   );
 }
 
-function Tag({ station, y, near, lit }: { station: Station; y: number; near: boolean; lit: boolean }) {
+const TAG_Y = 1.9;
+
+interface TagProps {
+  station: Station;
+  near: boolean;
+  lit: boolean;
+  bind: (el: HTMLDivElement | null) => void;
+}
+
+function Tag({ station, near, lit, bind }: TagProps) {
+  const at = useMemo(() => LANDMARKS[station.id].n.clone().multiplyScalar(R + TAG_Y), [station.id]);
   return (
-    <Html
-      position={[station.plinth[0], y, station.plinth[1]]}
-      center
-      zIndexRange={[10, 0]}
-      style={{ pointerEvents: "none" }}
-    >
+    <Html position={at} center zIndexRange={[10, 0]} style={{ pointerEvents: "none" }}>
       <div
-        className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border bg-white px-2.5 py-1 text-[11px] max-sm:px-1.5 max-sm:py-0.5 max-sm:text-[9px] font-medium text-black transition-[transform,border-color] ${
+        ref={bind}
+        className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border bg-white px-2.5 py-1 text-[11px] font-medium text-black transition-[transform,border-color,opacity] max-sm:px-2 max-sm:text-[10px] ${
           near ? "scale-110 border-hq-accent" : "border-hq-line"
         }`}
       >
         {lit && <span className="size-1.5 rounded-full bg-hq-accent" />}
         {station.label}
-        {near && (
-          <kbd className="rounded border border-hq-line px-1 text-[9px] leading-4 text-hq-mute pointer-coarse:hidden">E</kbd>
-        )}
       </div>
     </Html>
   );

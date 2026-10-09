@@ -1,16 +1,34 @@
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { STATIONS, STATION_BY_ID, type StationId } from "@/data/stations";
 import { ctl, gameReducer, setTarget, initialState } from "./game";
+import { VILLAGERS } from "./scene/folk";
+import { LANDMARKS, arc, toward } from "./scene/planet";
 
-const STORAGE_KEY = "hq:visited";
-const NEAR_RADIUS = 1.2;
-const ARRIVE_RADIUS = 0.3;
+const VISITED_KEY = "hq:visited";
+const MET_KEY = "hq:met";
+const NEAR_RADIUS = 1.9;
+const ARRIVE_RADIUS = 0.35;
 const MOVE_KEYS = new Set([
   "KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
 ]);
 
+export type Celebration = "stations" | "people";
+
+function load<T>(key: string, keep: (v: unknown) => v is T): T[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
+    return Array.isArray(saved) ? saved.filter(keep) : [];
+  } catch {
+    return [];
+  }
+}
+
+const isStation = (v: unknown): v is StationId => typeof v === "string" && v in STATION_BY_ID;
+const isVillager = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < VILLAGERS;
+
 export function useHQ() {
   const [state, dispatch] = useReducer(gameReducer, initialState);
+  const [toast, setToast] = useState<Celebration | null>(null);
   const stateRef = useRef(state);
 
   useEffect(() => {
@@ -20,66 +38,86 @@ export function useHQ() {
   }, [state]);
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as StationId[];
-      dispatch({ type: "hydrate", visited: saved.filter((id) => id in STATION_BY_ID) });
-    } catch {
-      /* corrupt storage just means a fresh run */
-    }
+    dispatch({ type: "hydrate", visited: load(VISITED_KEY, isStation), met: load(MET_KEY, isVillager) });
   }, []);
 
-  const lit = useRef(0);
-  const owed = useRef(false);
   useEffect(() => {
-    // owed only when the 7th station is lit live, never when a finished run is restored
-    if (lit.current === STATIONS.length - 1 && state.visited.size === STATIONS.length) owed.current = true;
-    lit.current = state.visited.size;
-    if (state.visited.size) localStorage.setItem(STORAGE_KEY, JSON.stringify([...state.visited]));
+    if (state.visited.size) localStorage.setItem(VISITED_KEY, JSON.stringify([...state.visited]));
   }, [state.visited]);
+  useEffect(() => {
+    if (state.met.size) localStorage.setItem(MET_KEY, JSON.stringify([...state.met]));
+  }, [state.met]);
+
+  const celebrate = useCallback((kind: Celebration) => {
+    ctl.celebrate.t = 0;
+    ctl.celebrate.active = true;
+    setToast(kind);
+  }, []);
+
+  // owed only when the last station is lit live, never when a finished run is restored
+  const partyOwedRef = useRef(false);
+  const open = useCallback((id: StationId) => {
+    const { visited } = stateRef.current;
+    if (!visited.has(id) && visited.size === STATIONS.length - 1) partyOwedRef.current = true;
+    ctl.target = null;
+    // face the landmark so the camera frames it from its door, whichever side the player came from
+    toward(ctl.player.n, LANDMARKS[id].n, ctl.north);
+    dispatch({ type: "open", id });
+  }, []);
+
+  // the stations party waits for the last panel to close so it plays out in view
+  const close = useCallback(() => {
+    if (stateRef.current.mode !== "inspecting") return;
+    dispatch({ type: "close" });
+    if (partyOwedRef.current) {
+      partyOwedRef.current = false;
+      celebrate("stations");
+    }
+  }, [celebrate]);
 
   useEffect(() => {
-    if (owed.current && state.mode === "exploring") {
-      owed.current = false;
-      ctl.celebrate.t = 0;
-      ctl.celebrate.active = true;
-    }
-  }, [state.mode]);
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 4200);
+    return () => clearTimeout(id);
+  }, [toast]);
 
   const travel = useCallback(
     (id: StationId) => {
-      if (stateRef.current.mode === "inspecting") dispatch({ type: "close" });
-      const [x, z] = STATION_BY_ID[id].position;
-      setTarget(x, z, id);
+      close();
+      setTarget(LANDMARKS[id].door, id);
     },
-    [],
+    [close],
   );
 
-  // Poll at 10Hz so proximity never touches React from the render loop.
+  // Poll at 10Hz so proximity and greetings never touch React from the render loop.
   useEffect(() => {
     const id = setInterval(() => {
       const s = stateRef.current;
+      if (ctl.greeted.length) {
+        const fresh = ctl.greeted.filter((v) => !s.met.has(v)).length;
+        if (s.met.size < VILLAGERS && s.met.size + fresh >= VILLAGERS) celebrate("people");
+        dispatch({ type: "greet", ids: ctl.greeted });
+        ctl.greeted = [];
+      }
       if (s.mode !== "exploring") return;
-      const { x, z } = ctl.player;
+      const p = ctl.player.n;
       let near: StationId | null = null;
       let best = NEAR_RADIUS;
       for (const st of STATIONS) {
-        const d = Math.hypot(st.position[0] - x, st.position[1] - z);
+        const d = arc(p, LANDMARKS[st.id].door);
         if (d < best) [best, near] = [d, st.id];
       }
       if (near !== s.near) dispatch({ type: "approach", id: near });
       const t = ctl.target;
-      if (t?.station && Math.hypot(t.x - x, t.z - z) < ARRIVE_RADIUS) {
-        ctl.target = null;
-        dispatch({ type: "open", id: t.station });
-      }
+      if (t?.station && arc(t.n, p) < ARRIVE_RADIUS) open(t.station);
     }, 100);
     return () => clearInterval(id);
-  }, []);
+  }, [open, celebrate]);
 
   const interact = useCallback(() => {
     const s = stateRef.current;
-    if (s.mode === "exploring" && s.near) dispatch({ type: "open", id: s.near });
-  }, []);
+    if (s.mode === "exploring" && s.near) open(s.near);
+  }, [open]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -92,7 +130,7 @@ export function useHQ() {
       } else if (e.code === "KeyE" || e.code === "Enter") {
         if (!(e.target instanceof HTMLButtonElement || e.target instanceof HTMLAnchorElement)) interact();
       } else if (e.code === "Escape") {
-        dispatch({ type: "close" });
+        close();
       } else {
         const st = STATIONS.find((s) => s.hotkey === e.key);
         if (st) travel(st.id);
@@ -108,9 +146,7 @@ export function useHQ() {
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", clear);
     };
-  }, [interact, travel]);
+  }, [interact, travel, close]);
 
-  const close = useCallback(() => dispatch({ type: "close" }), []);
-
-  return { state, travel, close };
+  return { state, toast, travel, open, close };
 }

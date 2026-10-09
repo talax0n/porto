@@ -1,19 +1,28 @@
+import { Vector3 } from "three";
 import type { StationId } from "@/data/stations";
-import { findPath } from "./scene/path";
+import { dirAt, flatten } from "./scene/planet";
+
+interface Progress {
+  visited: ReadonlySet<StationId>;
+  /** villager ids the player has bumped into */
+  met: ReadonlySet<number>;
+}
 
 export type GameState =
-  | { mode: "exploring"; visited: ReadonlySet<StationId>; near: StationId | null }
-  | { mode: "inspecting"; station: StationId; visited: ReadonlySet<StationId> };
+  | ({ mode: "exploring"; near: StationId | null } & Progress)
+  | ({ mode: "inspecting"; station: StationId } & Progress);
 
 export type GameAction =
   | { type: "approach"; id: StationId | null }
   | { type: "open"; id: StationId }
   | { type: "close" }
-  | { type: "hydrate"; visited: readonly StationId[] };
+  | { type: "greet"; ids: readonly number[] }
+  | { type: "hydrate"; visited: readonly StationId[]; met: readonly number[] };
 
 export const initialState: GameState = {
   mode: "exploring",
   visited: new Set(),
+  met: new Set(),
   near: null,
 };
 
@@ -27,12 +36,20 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         mode: "inspecting",
         station: action.id,
         visited: new Set(state.visited).add(action.id),
+        met: state.met,
       };
     case "close":
       if (state.mode !== "inspecting") return state;
-      return { mode: "exploring", visited: state.visited, near: state.station };
+      return { mode: "exploring", visited: state.visited, met: state.met, near: state.station };
+    case "greet":
+      if (action.ids.every((id) => state.met.has(id))) return state;
+      return { ...state, met: new Set([...state.met, ...action.ids]) };
     case "hydrate":
-      return { ...state, visited: new Set([...state.visited, ...action.visited]) };
+      return {
+        ...state,
+        visited: new Set([...state.visited, ...action.visited]),
+        met: new Set([...state.met, ...action.met]),
+      };
   }
 }
 
@@ -41,30 +58,36 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
  * (never React state) so frame loops and key handlers touch it without re-rendering.
  */
 export interface Controls {
-  player: { x: number; z: number; heading: number };
-  target: { x: number; z: number; station: StationId | null } | null;
-  /** waypoints toward `target`, consumed front first */
-  path: [number, number][];
+  /** unit position on the planet and the unit tangent the character faces */
+  player: { n: Vector3; heading: Vector3 };
+  /** screen-up as a tangent at the player, carried along as they walk so the view never spins */
+  north: Vector3;
+  /** a great-circle walk toward a surface point, optionally ending at a station door */
+  target: { n: Vector3; station: StationId | null } | null;
   keys: Set<string>;
   zoomMul: number;
   frozen: boolean;
   focus: StationId | null;
-  /** 7/7 celebration clock, advanced by the scene */
+  /** greetings since the last 10Hz poll, drained into the reducer */
+  greeted: number[];
+  /** celebration clock, advanced by the scene */
   celebrate: { active: boolean; t: number };
 }
 
+const spawn = dirAt(8, 90);
+
 export const ctl: Controls = {
-  player: { x: 0, z: 0, heading: Math.PI / 4 },
+  player: { n: spawn, heading: flatten(new Vector3(0, 0, -1), spawn) },
+  north: flatten(new Vector3(0, 0, -1), spawn),
   target: null,
-  path: [],
   keys: new Set(),
   zoomMul: 1,
   frozen: false,
   focus: null,
+  greeted: [],
   celebrate: { active: false, t: 0 },
 };
 
-export function setTarget(x: number, z: number, station: StationId | null) {
-  ctl.target = { x, z, station };
-  ctl.path = findPath(ctl.player.x, ctl.player.z, x, z);
+export function setTarget(n: Vector3, station: StationId | null) {
+  ctl.target = { n: n.clone().normalize(), station };
 }

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { AnimatePresence } from "framer-motion";
-import { Dock, Hint, Quest, Wordmark } from "./hud/hud";
+import { Dock, Hint, Quest, Toast, Wordmark } from "./hud/hud";
 import { Panel } from "./hud/panel";
 import { useHQ } from "./use-hq";
 
@@ -13,16 +13,20 @@ const Scene = dynamic(() => import("./scene/scene"), {
 });
 
 export function HQ() {
-  const { state, travel, close } = useHQ();
+  const { state, toast, travel, open, close } = useHQ();
   const current = state.mode === "inspecting" ? state.station : state.near;
 
   return (
     <main className="relative h-dvh w-full overflow-hidden bg-hq-bg">
-      <Scene state={state} onTravel={travel} />
+      <Scene state={state} onTravel={travel} onOpen={open} />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-4 sm:p-6">
         <Wordmark />
-        <Quest visited={state.visited} />
+        <Quest visited={state.visited} met={state.met} />
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-0 top-20 z-20 flex justify-center max-sm:top-28">
+        <AnimatePresence>{toast && <Toast key={toast} kind={toast} />}</AnimatePresence>
       </div>
 
       <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 sm:bottom-5">

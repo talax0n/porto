@@ -1,25 +1,33 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Raycaster, Plane, Vector2, Vector3, type Object3D } from "three";
-import { STATION_BY_ID, type StationId } from "@/data/stations";
+import { DirectionalLight, type Object3D, type PerspectiveCamera, Raycaster, Sphere, Vector2, Vector3 } from "three";
+import { STATIONS, type StationId } from "@/data/stations";
 import { ctl, setTarget } from "../game";
-import { WORLD } from "./layout";
+import { LANDMARKS, R, flatten } from "./planet";
 
-const OFFSET = new Vector3(14, 14, 14);
-const GROUND_FORESHORTEN = Math.sqrt(1 / 3);
-const RIGHT = new Vector3(1, 0, -1).normalize();
-const DOWN = new Vector3(1, 0, 1).normalize();
-const MIN_ZOOM = 0.6;
+/** Tilt of the view away from straight down; the horizon curves in near the top of the screen. */
+const PITCH = 1.0;
+const DIST = 18;
+const MIN_ZOOM = 0.65;
 const MAX_ZOOM = 1.6;
-const INSPECT_ZOOM = 1.35;
+const INSPECT = 0.85;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-const aim = new Vector3(ctl.player.x, 0, ctl.player.z);
+const aim = ctl.player.n.clone();
 const desired = new Vector3();
+const north = ctl.north.clone();
+const side = new Vector3();
+const lookAt = new Vector3();
+const view = { x: 0, y: 0, dist: DIST };
 
+/**
+ * Messenger-style follow cam: it hovers behind the player along the carried `ctl.north`, so the
+ * planet turns underneath. The light rides with it, which is why nothing bakes a shadow map.
+ */
 export function CameraRig() {
   const gl = useThree((s) => s.gl);
+  const light = useMemo(() => new DirectionalLight("#ffffff", 2.3), []);
 
   useEffect(() => {
     const el = gl.domElement;
@@ -33,50 +41,67 @@ export function CameraRig() {
   useFrame(({ size, camera }, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
     const k = 1 - Math.exp(-dt * 4);
-    const narrow = size.width < 768;
-    // the whole archipelago fits on a phone; wider screens frame it closer and follow the marble
-    const fit = narrow ? 27 : 22;
-    const baseZoom = clamp(Math.min(size.width / fit, size.height / (fit * 0.68)), 10, 70);
+    const narrow = size.width < 640;
+    const cam = camera as PerspectiveCamera;
 
-    let zoom = baseZoom * ctl.zoomMul;
+    let dist = DIST / ctl.zoomMul;
+    let ox = 0;
+    let oy = 0;
     if (ctl.focus) {
-      const [sx, sz] = STATION_BY_ID[ctl.focus].position;
-      zoom = Math.max(zoom, baseZoom) * INSPECT_ZOOM;
-      desired.set(sx, 0, sz);
-      // keep the station visible beside the HUD panel
-      if (narrow) desired.addScaledVector(DOWN, (size.height * 0.24) / (zoom * GROUND_FORESHORTEN));
-      else desired.addScaledVector(RIGHT, Math.min(260, size.width * 0.17) / zoom);
-    } else if (narrow) {
-      // the whole archipelago fits a phone screen only when framed from its center
-      desired.set(0, 0, 0);
+      const { n, door } = LANDMARKS[ctl.focus];
+      // between the landmark and its door, so the diorama and the keeper both fit
+      desired.copy(n).lerp(door, 0.35).normalize();
+      dist = Math.min(dist, DIST) * (narrow ? 1.25 : INSPECT);
+      // shift the projection so the station sits in the space beside the panel
+      if (narrow) oy = size.height * 0.25;
+      else ox = Math.min(460, size.width * 0.42) / 2 + 12;
     } else {
-      desired.set(clamp(ctl.player.x, -8, 8), 0, clamp(ctl.player.z, -6, 6));
+      desired.copy(ctl.player.n);
     }
+    if (narrow) dist *= 1.05;
 
-    aim.lerp(desired, k);
-    camera.position.copy(aim).add(OFFSET);
-    camera.lookAt(aim);
-    if (Math.abs(camera.zoom - zoom) > 0.01) {
-      camera.zoom += (zoom - camera.zoom) * k;
-      camera.updateProjectionMatrix();
-    }
+    aim.lerp(desired, k).normalize();
+    // ease toward the carried north; a half-turn needs a sideways nudge or the lerp never leaves home
+    if (north.dot(ctl.north) < -0.5) north.addScaledVector(side.crossVectors(aim, north), 0.3);
+    north.lerp(ctl.north, k * 0.8);
+    if (flatten(north, aim).lengthSq() === 0) north.copy(ctl.north);
+    view.dist += (dist - view.dist) * k;
+    view.x += (ox - view.x) * k;
+    view.y += (oy - view.y) * k;
+
+    lookAt.copy(aim).multiplyScalar(R + 0.5);
+    camera.position
+      .copy(lookAt)
+      .addScaledVector(aim, view.dist * Math.cos(PITCH))
+      .addScaledVector(north, -view.dist * Math.sin(PITCH));
+    camera.up.copy(aim);
+    camera.lookAt(lookAt);
+    cam.setViewOffset(size.width, size.height, view.x, view.y, size.width, size.height);
+
+    // key light over the camera's left shoulder, wherever on the planet that is
+    light.position.copy(camera.position).addScaledVector(aim, 8).addScaledVector(side.crossVectors(north, aim), -6);
+    light.target.position.copy(lookAt);
+    light.target.updateMatrixWorld();
   });
-  return null;
+  return <primitive object={light} />;
 }
 
 const ray = new Raycaster();
 const ndc = new Vector2();
-const ground = new Plane(new Vector3(0, 1, 0), 0);
+const planet = new Sphere(new Vector3(), R);
 const hit = new Vector3();
 
-function stationOf(o: Object3D | null): StationId | null {
-  for (let n = o; n; n = n.parent) {
-    if (n.userData.stationId) return n.userData.stationId as StationId;
+function nearestStation(p: Vector3): StationId {
+  let best = STATIONS[0].id;
+  let max = -Infinity;
+  for (const s of STATIONS) {
+    const d = p.dot(LANDMARKS[s.id].n);
+    if (d > max) [max, best] = [d, s.id];
   }
-  return null;
+  return best;
 }
 
-/** One pointer handler: station furniture first, otherwise the floor point. */
+/** One pointer handler: a landmark first, otherwise the clicked point on the planet. */
 export function ClickToMove({ onTravel }: { onTravel: (id: StationId) => void }) {
   const gl = useThree((s) => s.gl);
   const camera = useThree((s) => s.camera);
@@ -94,17 +119,12 @@ export function ClickToMove({ onTravel }: { onTravel: (id: StationId) => void })
       ray.setFromCamera(ndc, camera);
       const tagged: Object3D[] = [];
       scene.traverse((o) => {
-        if (o.userData.stationId) tagged.push(o);
+        if (o.userData.landmark) tagged.push(o);
       });
-      const id = stationOf(ray.intersectObjects(tagged, true)[0]?.object ?? null);
-      if (id) return onTravel(id);
-      if (ray.ray.intersectPlane(ground, hit)) {
-        setTarget(
-          clamp(hit.x, -WORLD.halfX + 0.5, WORLD.halfX - 0.5),
-          clamp(hit.z, -WORLD.halfZ + 0.5, WORLD.halfZ - 0.5),
-          null,
-        );
-      }
+      const ground = ray.ray.intersectSphere(planet, hit) ? ray.ray.origin.distanceTo(hit) : Infinity;
+      const first = ray.intersectObjects(tagged, false)[0];
+      if (first && first.distance < ground + 0.5) return onTravel(nearestStation(first.point.normalize()));
+      if (ground < Infinity) setTarget(hit, null);
     };
     el.addEventListener("pointerdown", onDown);
     el.addEventListener("pointerup", onUp);

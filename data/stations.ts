@@ -1,3 +1,6 @@
+import { AWARDS } from "./awards";
+import { PROJECTS } from "./projects";
+
 export type StationId =
   | "about"
   | "projects"
@@ -12,35 +15,20 @@ export interface Station {
   /** name tag and dock text */
   label: string;
   hotkey: string;
-  /** x,z of the plinth centre */
-  plinth: [number, number];
-  /** x,z floor coordinates of the interaction spot, on the plinth side that faces the hub */
-  position: [number, number];
-}
-
-/** Plinth edge-to-centre distance plus room for the marble. */
-const REACH = 2.2;
-
-function make(
-  id: StationId,
-  label: string,
-  hotkey: string,
-  plinth: [number, number],
-): Station {
-  const [x, z] = plinth;
-  const position: [number, number] =
-    Math.abs(x) > Math.abs(z) ? [x - Math.sign(x) * REACH, z] : [x, z - Math.sign(z) * REACH];
-  return { id, label, hotkey, plinth, position };
+  /** landmark spot on the planet in degrees: polar angle from the hub at the north pole, then azimuth */
+  at: [number, number];
+  /** what the keeper at the door says when you walk up */
+  line: string;
 }
 
 export const STATIONS: readonly Station[] = [
-  make("about", "About", "1", [-7.5, 2]),
-  make("projects", "Projects", "2", [-4.5, -5]),
-  make("experience", "Experience", "3", [2.5, -6.5]),
-  make("skills", "Skills", "4", [8, -2.5]),
-  make("awards", "Awards", "5", [7, 4]),
-  make("github", "GitHub", "6", [1.5, 6.5]),
-  make("contact", "Contact", "7", [-4.5, 6.5]),
+  { id: "about", label: "About", hotkey: "1", at: [38, 200], line: "Hi! This is Theo's house. He plans the architecture before the code." },
+  { id: "projects", label: "Projects", hotkey: "2", at: [40, 290], line: `Psst. Theo shipped ${PROJECTS.length} projects. SolHedge is my favourite.` },
+  { id: "experience", label: "Experience", hotkey: "3", at: [42, 20], line: "Two years of fintech, e-commerce and healthcare. Climb the steps." },
+  { id: "skills", label: "Skills", hotkey: "4", at: [40, 110], line: "React, Next.js, Unity, Docker. Theo keeps them all in here." },
+  { id: "awards", label: "Awards", hotkey: "5", at: [98, 335], line: `${AWARDS.length} awards on the podium. Go on, have a look.` },
+  { id: "github", label: "GitHub", hotkey: "6", at: [102, 65], line: "Every cube is a day of commits. It's getting tall." },
+  { id: "contact", label: "Contact", hotkey: "7", at: [98, 155], line: "Want to build something together? Leave Theo a letter." },
 ];
 
 export const STATION_BY_ID = Object.fromEntries(

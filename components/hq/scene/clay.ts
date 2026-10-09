@@ -66,14 +66,14 @@ function shared(key: string, make: () => BufferGeometry) {
 // Rounded boxes stay at smoothness 2, props' spheres at 12 segments.
 export const box = (w: number, h: number, d: number, r = 0.05) =>
   shared(`b${w},${h},${d},${r}`, () => new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2)));
-export const ball = (r: number) => shared(`s${r}`, () => new SphereGeometry(r, 12, 9));
+export const ball = (r: number, w = 12, h = 9) => shared(`s${r},${w},${h}`, () => new SphereGeometry(r, w, h));
 export const cyl = (rt: number, rb: number, h: number) =>
   shared(`c${rt},${rb},${h}`, () => new CylinderGeometry(rt, rb, h, 14));
 export const cone = (r: number, h: number) => shared(`n${r},${h}`, () => new ConeGeometry(r, h, 14));
-export const ring = (r: number, tube: number) =>
-  shared(`t${r},${tube}`, () => new TorusGeometry(r, tube, 8, 18));
-export const pill = (r: number, len: number) =>
-  shared(`p${r},${len}`, () => new CapsuleGeometry(r, len, 4, 10));
+export const ring = (r: number, tube: number, rad = 8, seg = 18) =>
+  shared(`t${r},${tube},${rad},${seg}`, () => new TorusGeometry(r, tube, rad, seg));
+export const pill = (r: number, len: number, cap = 4, rad = 10) =>
+  shared(`p${r},${len},${cap},${rad}`, () => new CapsuleGeometry(r, len, cap, rad));
 
 export const part = (geo: BufferGeometry, pos: Vec3, opts: PartOpts = {}): Part => ({ geo, pos, opts });
 

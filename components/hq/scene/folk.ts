@@ -1,0 +1,241 @@
+import { BufferGeometry, Color, Matrix4, PlaneGeometry, SphereGeometry, Vector3 } from "three";
+import { STATIONS, type StationId } from "@/data/stations";
+import { ACCENT, TONE, ball, cyl, merge, paint, part, pill, ring, type Part } from "./clay";
+import { PASTEL, rng, scatter } from "./props";
+import { LANDMARKS, NORTH_POLE, OBSTACLES, R, arc, flatten, resolve, steer, toward, walk } from "./planet";
+
+export const VILLAGERS = 60;
+
+/**
+ * Character space: feet on y=0, facing +Z, about one unit tall before `SCALE`.
+ * Every part is baked at its rest pose, so a part's instance matrix is just the pose of the
+ * bone it hangs from (torso or head) and no per-part offsets live in the frame loop.
+ */
+export const SCALE = 0.78;
+const HEAD_Y = 0.7;
+const HEAD_R = 0.33;
+const HEAD_SQUASH = 0.9;
+
+const ell = (seg: [number, number]) => new SphereGeometry(1, ...seg);
+
+/** Point on the head surface at (x, y) on its front, plus the outward normal there. */
+function onHead(x: number, y: number): [Vector3, Vector3] {
+  const dy = (y - HEAD_Y) / HEAD_SQUASH;
+  const z = Math.sqrt(Math.max(0, HEAD_R * HEAD_R - x * x - dy * dy));
+  const p = new Vector3(x, y, z);
+  const nrm = new Vector3(x, dy / HEAD_SQUASH, z).normalize();
+  return [p, nrm];
+}
+
+/** A flattened dot lying on the head, its thin axis along the surface normal. */
+function dot(x: number, y: number, r: [number, number, number], tone: string): Part {
+  const [p, nrm] = onHead(x, y);
+  const m = new Matrix4().lookAt(nrm, new Vector3(), new Vector3(0, 1, 0));
+  return part(ell([6, 4]).scale(...r).applyMatrix4(m).translate(p.x, p.y, p.z), [0, 0, 0], { tone });
+}
+
+function bake(geo: BufferGeometry, s: [number, number, number], at: [number, number, number], tone = "#ffffff") {
+  return paint(geo.scale(...s).translate(...at), tone);
+}
+
+const flatPlane = () => new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+
+export const PARTS = {
+  head: bake(ell([14, 10]), [HEAD_R, HEAD_R * HEAD_SQUASH, HEAD_R], [0, HEAD_Y, 0]),
+  body: bake(ell([10, 8]), [0.2, 0.22, 0.18], [0, 0.3, 0]),
+  /** feet and arms: a unit nub scaled per instance */
+  nub: paint(ell([5, 4]), "#ffffff"),
+  face: merge([
+    dot(-0.115, 0.7, [0.038, 0.05, 0.02], "#1c1c1e"),
+    dot(0.115, 0.7, [0.038, 0.05, 0.02], "#1c1c1e"),
+    dot(-0.2, 0.62, [0.06, 0.032, 0.012], "#f3b9b1"),
+    dot(0.2, 0.62, [0.06, 0.032, 0.012], "#f3b9b1"),
+  ]),
+  beanie: merge([
+    part(new SphereGeometry(HEAD_R + 0.02, 14, 5, 0, Math.PI * 2, 0, Math.PI * 0.36), [0, HEAD_Y + 0.02, 0], {
+      scale: [1, HEAD_SQUASH, 1],
+    }),
+    part(ring(0.29, 0.045, 5, 14), [0, HEAD_Y + 0.17, 0], { rot: [Math.PI / 2, 0, 0] }),
+    part(ball(0.075, 7, 5), [0, HEAD_Y + 0.33, 0]),
+  ]),
+  cap: merge([
+    part(new SphereGeometry(HEAD_R + 0.015, 14, 5, 0, Math.PI * 2, 0, Math.PI * 0.32), [0, HEAD_Y + 0.02, 0], {
+      scale: [1, HEAD_SQUASH, 1],
+    }),
+    part(cyl(0.17, 0.17, 0.025), [0, HEAD_Y + 0.17, 0.27], { rot: [0.25, 0, 0], scale: [1, 1, 0.75] }),
+  ]),
+  ears: merge([
+    part(pill(0.065, 0.2, 3, 8), [-0.12, HEAD_Y + 0.38, 0], { rot: [0, 0, 0.22] }),
+    part(pill(0.065, 0.2, 3, 8), [0.12, HEAD_Y + 0.38, 0], { rot: [0, 0, -0.22] }),
+    part(pill(0.032, 0.14, 2, 6), [-0.125, HEAD_Y + 0.38, 0.045], { rot: [0, 0, 0.22], tone: "#f3c4c4" }),
+    part(pill(0.032, 0.14, 2, 6), [0.125, HEAD_Y + 0.38, 0.045], { rot: [0, 0, -0.22], tone: "#f3c4c4" }),
+  ]),
+  /** "met" marker floating over the head */
+  pip: bake(ell([6, 4]), [0.055, 0.055, 0.055], [0, HEAD_Y + 0.44, 0]),
+  blob: flatPlane(),
+} satisfies Record<string, BufferGeometry>;
+
+export const HATS = ["beanie", "cap", "ears"] as const;
+export type Hat = (typeof HATS)[number];
+
+export const SKIN = new Color(TONE.white);
+const FOOT = new Color(TONE.light);
+
+interface Body {
+  n: Vector3;
+  heading: Vector3;
+  hat: Hat | null;
+  hatColor: Color;
+  shirt: Color;
+  foot: Color;
+  /** walk speed now, in surface units per second */
+  speed: number;
+  phase: number;
+  /** waddle amplitude, eased toward 0 at rest and 1 at full walk */
+  amp: number;
+  /** squash spring for start/stop */
+  sq: number;
+  sqv: number;
+  /** signed turn rate, for leaning into turns */
+  lean: number;
+  /** seconds since the last greeting hop started; Infinity when idle */
+  hop: number;
+}
+
+export type Folk = Body &
+  (
+    | { kind: "player" }
+    | { kind: "villager"; id: number; want: number; turn: number; timer: number }
+    | { kind: "keeper"; station: StationId; post: Vector3; rest: Vector3 }
+  );
+
+const rest = (): Omit<Body, "n" | "heading" | "hat" | "hatColor" | "shirt" | "foot"> => ({
+  speed: 0,
+  phase: 0,
+  amp: 0,
+  sq: 0,
+  sqv: 0,
+  lean: 0,
+  hop: Infinity,
+});
+
+const accent = new Color(ACCENT);
+const pastel = PASTEL.map((c) => new Color(c));
+
+/** The player rides on `ctl.player`'s vectors, so the crowd always reads the live pose. */
+export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
+  const rand = rng(42);
+  const pick = <T,>(xs: readonly T[]) => xs[Math.floor(rand() * xs.length)];
+  const folk: Folk[] = [
+    {
+      kind: "player",
+      ...player,
+      ...rest(),
+      hat: "beanie",
+      hatColor: accent,
+      shirt: SKIN,
+      foot: FOOT,
+    },
+  ];
+  for (const s of STATIONS) {
+    const { keeper, keeperFacing } = LANDMARKS[s.id];
+    folk.push({
+      kind: "keeper",
+      station: s.id,
+      post: keeper,
+      rest: keeperFacing,
+      n: keeper.clone(),
+      heading: keeperFacing.clone(),
+      ...rest(),
+      hat: "cap",
+      hatColor: new Color(TONE.white),
+      shirt: pick(pastel),
+      foot: FOOT,
+    });
+  }
+  for (let id = 0; id < VILLAGERS; id++) {
+    const n = new Vector3();
+    do scatter(rand, n);
+    while (OBSTACLES.some((o) => arc(n, o.n) < o.r + 0.4) || arc(n, NORTH_POLE) < 2.5);
+    const roll = rand();
+    folk.push({
+      kind: "villager",
+      id,
+      n,
+      heading: toward(n, scatter(rand, new Vector3()), new Vector3()),
+      ...rest(),
+      want: 0,
+      turn: 0,
+      timer: rand() * 3,
+      hat: roll < 0.18 ? "ears" : roll < 0.34 ? "beanie" : roll < 0.48 ? "cap" : null,
+      hatColor: rand() < 0.5 ? new Color(TONE.white) : pick(pastel),
+      shirt: rand() < 0.25 ? new Color(TONE.white) : pick(pastel),
+      foot: FOOT,
+    });
+  }
+  return folk;
+}
+
+export const RADIUS = 0.26;
+export const WALK = 1.1;
+const SPACE = 0.75;
+
+const dir = new Vector3();
+const push = new Vector3();
+const tmp = new Vector3();
+
+/** Random-walk steering: wander, keep a little apart, give the player and props room. */
+export function stepVillager(f: Extract<Folk, { kind: "villager" }>, crowd: Folk[], dt: number, rand: () => number) {
+  f.timer -= dt;
+  if (f.timer < 0) {
+    const stroll = rand() < 0.7;
+    f.want = stroll ? WALK * (0.6 + rand() * 0.5) : 0;
+    f.turn = (rand() - 0.5) * (stroll ? 1.6 : 0);
+    f.timer = 1.5 + rand() * 3.5;
+  }
+  dir.copy(f.heading).applyAxisAngle(f.n, f.turn * dt);
+  push.set(0, 0, 0);
+  // all-pairs is fine for ~70 walkers; bucket by cell if the crowd grows into the hundreds
+  for (const o of crowd) {
+    if (o === f) continue;
+    const c = f.n.dot(o.n);
+    if (c < Math.cos(SPACE / R)) continue;
+    const d = Math.acos(Math.min(1, c)) * R;
+    toward(f.n, o.n, tmp).multiplyScalar(-(SPACE - d) / SPACE);
+    push.add(o.kind === "player" ? tmp.multiplyScalar(2) : tmp);
+  }
+  const crowded = push.lengthSq() > 0.04;
+  dir.addScaledVector(push, 2.5);
+  flatten(dir, f.n);
+  const pressed = steer(f.n, dir, RADIUS, null);
+  // turning the body is what makes the wander read as walking, not sliding
+  f.heading.lerp(dir, Math.min(1, dt * 4));
+  flatten(f.heading, f.n);
+  const want = crowded ? Math.max(f.want, WALK * 0.7) : f.want * (1 - pressed * 0.5);
+  f.speed += (want - f.speed) * Math.min(1, dt * 3);
+  move(f, dt);
+}
+
+/** Advances along the heading by the current speed and keeps clear of footprints. */
+export function move(f: Folk, dt: number, along: Vector3 = f.heading, ...riders: Vector3[]) {
+  if (f.speed > 1e-3) walk(f.n, along, f.speed * dt, f.heading, ...riders);
+  resolve(f.n, RADIUS, f.heading, ...riders);
+}
+
+const SQ_SPRING = 170;
+const SQ_DAMP = 15;
+
+/** Walk cycle, waddle, squash spring and hop clock, shared by every character. */
+export function animate(f: Folk, dt: number, turnRate: number) {
+  const walking = f.speed > 0.25;
+  const target = Math.min(1, f.speed / WALK);
+  if ((f.amp > 0.4) !== walking && Math.abs(target - f.amp) > 0.3) f.sqv += walking ? 3 : -3.2;
+  f.amp += (target - f.amp) * Math.min(1, dt * 8);
+  f.phase += dt * (5 + 7 * f.amp) * (f.amp > 0.02 ? 1 : 0);
+  f.sqv += (-SQ_SPRING * f.sq - SQ_DAMP * f.sqv) * dt;
+  f.sq += f.sqv * dt;
+  f.lean += (turnRate - f.lean) * Math.min(1, dt * 6);
+  if (f.hop !== Infinity) f.hop += dt;
+}
+
+export const HOP = 0.45;
