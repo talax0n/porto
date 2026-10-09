@@ -34,7 +34,11 @@ export function HQ() {
         </div>
         <div
           data-hud
-          className={cn("flex flex-col items-end gap-3 transition-opacity duration-500", intro && "opacity-0")}
+          className={cn(
+            "flex flex-col items-end gap-3 transition-opacity duration-500",
+            (intro || state.mode === "inspecting") && "sm:opacity-0",
+            intro && "opacity-0",
+          )}
           aria-hidden={intro}
         >
           <Quest visited={state.visited} met={state.met} />
