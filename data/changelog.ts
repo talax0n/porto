@@ -1,0 +1,63 @@
+export interface Release {
+  version: string;
+  date: string;
+  title: string;
+  notes: string[];
+}
+
+/** newest first */
+export const CHANGELOG: Release[] = [
+  {
+    version: "1.2.0",
+    date: "2026-10-10",
+    title: "Day and night",
+    notes: [
+      "The sky follows the Jakarta clock, from sunrise to a starry night.",
+      "Agent bubbles stack instead of overlapping when villagers crowd together.",
+    ],
+  },
+  {
+    version: "1.1.0",
+    date: "2026-10-09",
+    title: "Live agents",
+    notes: [
+      "Villagers now mirror my live Claude and Codex sessions, one per agent.",
+      "Each agent drops in from the sky, works at a desk or the gym, and heads to bed when done.",
+      "Project monitors scroll code while an agent works at them.",
+    ],
+  },
+  {
+    version: "1.0.0",
+    date: "2026-10-09",
+    title: "HQ, a tiny clay planet",
+    notes: [
+      "The portfolio is now a walkable clay planet with a station per section.",
+      "A first-visit intro, a minimap, and a spinnable globe map you can travel from.",
+      "Three daily quests with a streak, and a touch joystick on phones.",
+    ],
+  },
+  {
+    version: "0.4.0",
+    date: "2026-09-13",
+    title: "Static and fast",
+    notes: ["Content is hardcoded, the admin and database are gone.", "Added a GitHub commit graph."],
+  },
+  {
+    version: "0.3.0",
+    date: "2026-08-25",
+    title: "UI rework",
+    notes: ["Reworked the whole portfolio UI."],
+  },
+  {
+    version: "0.2.0",
+    date: "2026-04-25",
+    title: "Project details",
+    notes: ["Project detail pages and a downloadable CV."],
+  },
+  {
+    version: "0.1.0",
+    date: "2026-04-23",
+    title: "First version",
+    notes: ["A scrolling portfolio with projects, about, and contact sections, plus a theme toggle."],
+  },
+];

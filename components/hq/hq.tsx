@@ -5,6 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Dock, Hint, Replay, Toast, Wordmark } from "./hud/hud";
 import { EdgeArrows, MapChrome, Minimap } from "./hud/map";
+import { Changelog } from "./hud/changelog";
 import { Sky } from "./sky";
 import { Today } from "./hud/today";
 import { Panel } from "./hud/panel";
@@ -36,6 +37,7 @@ export function HQ() {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between p-4 sm:p-6">
         <div data-hud className={cn("transition-opacity duration-500", map && "max-sm:opacity-0")}>
           <Wordmark />
+          {!intro && <Changelog />}
         </div>
         <div
           data-hud
