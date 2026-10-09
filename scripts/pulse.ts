@@ -8,6 +8,7 @@ import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { type Agent, MAX_AGENTS, type Provider, type Pulse, cleanTitle, kindOf } from "../data/pulse.ts";
 
 const ENDPOINT = process.env.PULSE_URL;
@@ -23,6 +24,7 @@ const DEBOUNCE_MS = 5_000;
 const HEARTBEAT_MS = 60_000;
 
 interface Session {
+  id: string;
   provider: Provider;
   offset: number;
   mtime: number;
@@ -150,7 +152,7 @@ function scan(): Pulse {
     if (!s) {
       // files that predate the watcher start at EOF; a fresh session is read from its first line
       const fresh = !first && now - st.birthtimeMs < LIVE_MS;
-      s = { provider, offset: fresh ? 0 : st.size, mtime: st.mtimeMs, last: { phase: "thinking", kind: "other" }, title: null, titledAt: 0, tail: "" };
+      s = { id: createHash("sha256").update(path).digest("hex").slice(0, 8), provider, offset: fresh ? 0 : st.size, mtime: st.mtimeMs, last: { phase: "thinking", kind: "other" }, title: null, titledAt: 0, tail: "" };
       sessions.set(path, s);
     }
     if (st.size < s.offset) s.offset = s.tail.length ? 0 : st.size;
@@ -163,7 +165,7 @@ function scan(): Pulse {
         s.titledAt = now;
         s.title = provider === "claude" ? (claudeTitle(readFileSync(path, "utf8")) ?? s.title) : codexTitle(path);
       }
-      agents.push({ provider, ...s.last, title: s.title });
+      agents.push({ id: s.id, provider, ...s.last, title: s.title });
     }
   }
   first = false;

@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import { cleanTitle, parsePulse } from "../data/pulse.ts";
 
-const agent = { provider: "claude", phase: "tool", kind: "edit", title: "Agent pulse villagers" };
+const agent = { id: "0a1b2c3d", provider: "claude", phase: "tool", kind: "edit", title: "Agent pulse villagers" };
 const ok = { agents: [agent], lastSeen: Date.now(), runsToday: 3 };
 
 assert.deepEqual(parsePulse(ok), ok);
 assert.equal(parsePulse({ ...ok, project: "secret" }), null, "extra top-level field");
 assert.equal(parsePulse({ ...ok, agents: [{ ...agent, path: "/etc/passwd" }] }), null, "extra agent field");
 assert.equal(parsePulse({ ...ok, agents: [{ ...agent, kind: "rm" }] }), null, "unknown kind");
+const anonymous = Object.fromEntries(Object.entries(agent).filter(([k]) => k !== "id"));
+assert.equal(parsePulse({ ...ok, agents: [anonymous] }), null, "missing id");
+for (const id of ["0A1B2C3D", "0a1b2c3", "0a1b2c3d4", "/Users/x", 12345678])
+  assert.equal(parsePulse({ ...ok, agents: [{ ...agent, id }] }), null, `bad id ${id}`);
 assert.equal(parsePulse({ ...ok, agents: Array(11).fill(agent) }), null, "11 agents");
 assert.notEqual(parsePulse({ ...ok, agents: Array(10).fill(agent) }), null, "10 agents");
 assert.equal(parsePulse({ ...ok, runsToday: -1 }), null, "negative");
