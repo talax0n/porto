@@ -12,8 +12,10 @@ import { Crowd } from "./crowd";
 import { Globe } from "./globe";
 import { GithubGrid } from "./github-grid";
 import { IntroBubble } from "./intro";
+import type { Room } from "../use-room";
 import { MinimapView } from "./minimap";
 import { Ping } from "./ping";
+import { Speech } from "./speech";
 import { Waypoints } from "./waypoints";
 import { World } from "./world";
 import { Screens } from "./workplaces";
@@ -21,13 +23,14 @@ import { Screens } from "./workplaces";
 interface SceneProps {
   state: GameState;
   target: StationId | null;
+  room: Room;
   onTravel: (id: StationId) => void;
   onOpen: (id: StationId) => void;
   onNext: () => void;
   onSkip: () => void;
 }
 
-export default function Scene({ state, target, onTravel, onOpen, onNext, onSkip }: SceneProps) {
+export default function Scene({ state, target, room, onTravel, onOpen, onNext, onSkip }: SceneProps) {
   const [dpr, setDpr] = useState(1.5);
   const near = state.mode === "exploring" ? state.near : null;
   const inspecting = state.mode === "inspecting" ? state.station : null;
@@ -55,6 +58,7 @@ export default function Scene({ state, target, onTravel, onOpen, onNext, onSkip 
       <GithubGrid />
       <Crowd near={near} onOpen={onOpen} />
       <Agents />
+      <Speech lines={room.lines} me={room.me} onMute={room.mute} />
       {state.mode === "map" && <Globe visited={state.visited} target={target} onTravel={onTravel} />}
       {state.mode === "onboarding" && <IntroBubble step={state.step} onNext={onNext} onSkip={onSkip} />}
       <Ping />

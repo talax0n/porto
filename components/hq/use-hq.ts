@@ -234,6 +234,8 @@ export function useHQ() {
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      // typing in the chat box must not walk, jump to a station or open one
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const { mode } = stateRef.current;
       if (mode === "onboarding") {
