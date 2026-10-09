@@ -5,6 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Dock, Hint, Quest, Replay, Toast, Wordmark } from "./hud/hud";
 import { FullMap, Minimap } from "./hud/map";
+import { Today } from "./hud/today";
 import { Panel } from "./hud/panel";
 import { useHQ } from "./use-hq";
 
@@ -15,10 +16,13 @@ const Scene = dynamic(() => import("./scene/scene"), {
 });
 
 export function HQ() {
-  const { state, toast, travel, open, close, next, skip, replay, toggleMap } = useHQ();
+  const { state, toast, quests, streak, travel, open, close, next, skip, replay, toggleMap } = useHQ();
   const current = state.mode === "inspecting" ? state.station : state.mode === "exploring" ? state.near : null;
   // the intro has the stage to itself; the first render is a drop-in too, so nothing flashes before it
   const intro = state.mode === "onboarding" || state.mode === "landing";
+  const visit = quests?.find((q) => q.quest.kind === "visit" && !q.done)?.quest;
+  /** today's unfinished visit quest, which the map and the waypoints point at */
+  const target = visit?.kind === "visit" ? visit.station : null;
 
   return (
     <main className="relative h-dvh w-full overflow-hidden bg-white">
@@ -26,13 +30,17 @@ export function HQ() {
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-4 sm:p-6">
         <Wordmark />
-        <div className={cn("transition-opacity duration-500", intro && "opacity-0")} aria-hidden={intro}>
+        <div
+          className={cn("flex flex-col items-end gap-3 transition-opacity duration-500", intro && "opacity-0")}
+          aria-hidden={intro}
+        >
           <Quest visited={state.visited} met={state.met} />
+          {quests && state.mode === "exploring" && <Today quests={quests} streak={streak} onTravel={travel} />}
         </div>
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 top-20 z-20 flex justify-center max-sm:top-28">
-        <AnimatePresence>{toast && <Toast key={toast} kind={toast} />}</AnimatePresence>
+      <div className="pointer-events-none absolute inset-x-0 top-20 z-30 flex justify-center px-3 max-sm:top-44">
+        <AnimatePresence>{toast && <Toast key={toast.id} text={toast.text} />}</AnimatePresence>
       </div>
 
       {!intro && (
@@ -49,12 +57,12 @@ export function HQ() {
 
       {state.mode === "exploring" && (
         <div className="absolute right-5 bottom-5 z-20 max-sm:right-3 max-sm:bottom-16">
-          <Minimap visited={state.visited} met={state.met} target={null} onOpen={toggleMap} />
+          <Minimap visited={state.visited} met={state.met} target={target} onOpen={toggleMap} />
         </div>
       )}
       <AnimatePresence>
         {state.mode === "map" && (
-          <FullMap visited={state.visited} met={state.met} target={null} onTravel={travel} onClose={close} />
+          <FullMap visited={state.visited} met={state.met} target={target} onTravel={travel} onClose={close} />
         )}
       </AnimatePresence>
 

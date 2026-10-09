@@ -1,12 +1,17 @@
 import { Vector3 } from "three";
 import { INTRO } from "@/data/onboarding";
+import { type DayLog, type Streak, extendStreak, freshDay, questRows } from "@/data/quests";
 import type { StationId } from "@/data/stations";
+import { VILLAGERS } from "./scene/folk";
 import { dirAt, flatten } from "./scene/planet";
 
 interface Progress {
   visited: ReadonlySet<StationId>;
   /** villager ids the player has bumped into */
   met: ReadonlySet<number>;
+  /** null until hydration reads the visitor's clock, so the server never renders a date */
+  daily: DayLog | null;
+  streak: Streak;
 }
 
 export type GameState =
@@ -29,21 +34,51 @@ export type GameAction =
   | { type: "skip" }
   | { type: "landed" }
   | { type: "replay" }
-  | { type: "hydrate"; visited: readonly StationId[]; met: readonly number[]; introSeen: boolean };
+  | { type: "walk"; steps: number }
+  /** the local date rolled over while the page was open */
+  | { type: "day"; date: string }
+  | {
+      type: "hydrate";
+      visited: readonly StationId[];
+      met: readonly number[];
+      introSeen: boolean;
+      daily: DayLog;
+      streak: Streak;
+    };
 
 /** Every visit starts mid-drop; hydration turns it into the intro for first-time visitors. */
-export const initialState: GameState = { mode: "landing", visited: new Set(), met: new Set() };
+export const initialState: GameState = {
+  mode: "landing",
+  visited: new Set(),
+  met: new Set(),
+  daily: null,
+  streak: { count: 0, last: null },
+};
 
-const progress = ({ visited, met }: GameState): Progress => ({ visited, met });
+const progress = ({ visited, met, daily, streak }: GameState): Progress => ({ visited, met, daily, streak });
 
+const logged = (state: GameState, change: (log: DayLog) => Partial<DayLog>): GameState =>
+  state.daily ? { ...state, daily: { ...state.daily, ...change(state.daily) } } : state;
+
+/** Whatever moved today's log, the streak follows from it rather than from each action. */
 export function gameReducer(state: GameState, action: GameAction): GameState {
+  const next = step(state, action);
+  const log = next.daily;
+  if (!log || log === state.daily || next.streak.last === log.date) return next;
+  if (!questRows(log, VILLAGERS - next.met.size).every((r) => r.done)) return next;
+  return { ...next, streak: extendStreak(next.streak, log.date) };
+}
+
+function step(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case "approach":
       if (state.mode !== "exploring" || state.near === action.id) return state;
       return { ...state, near: action.id };
-    case "open":
+    case "open": {
       if (state.mode === "onboarding" || state.mode === "landing") return state;
-      return { ...progress(state), mode: "inspecting", station: action.id, visited: new Set(state.visited).add(action.id) };
+      const opened = logged(state, (l) => (l.opened.includes(action.id) ? {} : { opened: [...l.opened, action.id] }));
+      return { ...progress(opened), mode: "inspecting", station: action.id, visited: new Set(state.visited).add(action.id) };
+    }
     case "close":
       if (state.mode === "inspecting") return { mode: "exploring", near: state.station, ...progress(state) };
       if (state.mode === "map") return { mode: "exploring", near: null, ...progress(state) };
@@ -52,9 +87,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.mode === "map") return { mode: "exploring", near: null, ...progress(state) };
       if (state.mode !== "exploring" && state.mode !== "inspecting") return state;
       return { mode: "map", ...progress(state) };
-    case "greet":
-      if (action.ids.every((id) => state.met.has(id))) return state;
-      return { ...state, met: new Set([...state.met, ...action.ids]) };
+    case "greet": {
+      const fresh = new Set(action.ids.filter((id) => !state.met.has(id)));
+      if (!fresh.size) return state;
+      return { ...logged(state, (l) => ({ met: l.met + fresh.size })), met: new Set([...state.met, ...fresh]) };
+    }
+    case "walk":
+      return logged(state, (l) => ({ steps: l.steps + action.steps }));
+    case "day":
+      if (!state.daily || state.daily.date === action.date) return state;
+      return { ...state, daily: freshDay(action.date) };
     case "next":
       if (state.mode !== "onboarding") return state;
       if (state.step + 1 < INTRO.length) return { ...state, step: state.step + 1 };
@@ -72,6 +114,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const restored: Progress = {
         visited: new Set([...state.visited, ...action.visited]),
         met: new Set([...state.met, ...action.met]),
+        daily: action.daily,
+        streak: action.streak,
       };
       if (!action.introSeen && state.mode === "landing") return { mode: "onboarding", step: 0, ...restored };
       return { ...state, ...restored };
@@ -102,6 +146,8 @@ export interface Controls {
   intro: "hover" | "fall" | "ground";
   /** player's height above the ground, in world units */
   alt: number;
+  /** distance walked since the last 10Hz poll, drained into today's steps */
+  walked: number;
   /** filled by the crowd once it spawns, so the map can chart villagers without importing the scene */
   villagers: readonly { n: Vector3; id: number }[];
 }
@@ -123,6 +169,7 @@ export const ctl: Controls = {
   celebrate: { active: false, t: 0 },
   intro: "fall",
   alt: DROP_IN,
+  walked: 0,
   villagers: [],
 };
 

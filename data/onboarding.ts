@@ -14,7 +14,10 @@ export const INTRO: readonly IntroLine[] = [
     text: "Each little building holds a piece of my story. Walk up and press E.",
     touch: "Each little building holds a piece of my story. Walk up and tap to open.",
   },
-  { text: `Light up all ${STATIONS.length}, and say hi to the ${VILLAGERS} folks who live here.` },
+  {
+    text: `Light up all ${STATIONS.length}, meet the ${VILLAGERS} folks, and try today's 3 quests. Press M for the map.`,
+    touch: `Light up all ${STATIONS.length}, meet the ${VILLAGERS} folks, and try today's 3 quests. Tap the corner map.`,
+  },
   {
     text: "WASD or click to walk. Ready? Here I go!",
     touch: "Tap anywhere to walk. Ready? Here I go!",

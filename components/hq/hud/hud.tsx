@@ -3,7 +3,6 @@ import { STATIONS, type StationId } from "@/data/stations";
 import { PROFILE } from "@/data/profile";
 import { cn } from "@/lib/utils";
 import { VILLAGERS } from "../scene/folk";
-import type { Celebration } from "../use-hq";
 
 export function Wordmark() {
   return (
@@ -49,12 +48,7 @@ export function Quest({ visited, met }: { visited: ReadonlySet<StationId>; met: 
   );
 }
 
-const TOASTS: Record<Celebration, string> = {
-  stations: "All 7 lit. Thanks for looking around!",
-  people: `You met all ${VILLAGERS} villagers. Everyone knows you now.`,
-};
-
-export function Toast({ kind }: { kind: Celebration }) {
+export function Toast({ text }: { text: string }) {
   return (
     <motion.p
       role="status"
@@ -63,7 +57,7 @@ export function Toast({ kind }: { kind: Celebration }) {
       exit={{ opacity: 0, y: -8 }}
       className="rounded-full bg-hq-accent px-4 py-2 text-[12px] font-semibold text-white shadow-[0_12px_30px_-12px_rgba(43,60,255,0.6)]"
     >
-      {TOASTS[kind]}
+      {text}
     </motion.p>
   );
 }
