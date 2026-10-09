@@ -32,7 +32,7 @@ import {
   move,
   stepVillager,
 } from "./folk";
-import { IDLES, type Gesture, blankPose, mirrorPose, mixPose, onceOf, poseOf } from "./gesture";
+import { IDLES, type Gesture, type Pose, blankPose, chasePose, mirrorPose, mixPose, onceOf, poseOf } from "./gesture";
 import { LANDMARKS, R, arc, flatten, frameAt, steer, toward } from "./planet";
 import { blobTexture } from "./props";
 
@@ -72,6 +72,10 @@ const isIdle = (g: Gesture) => (IDLES as readonly Gesture[]).includes(g);
 const shown = blankPose();
 const from = blankPose();
 const live = blankPose();
+/** keepers never gesture; villagers carry their own pose */
+const STILL = blankPose();
+const aim = blankPose();
+const poseFor = (f: Folk): Pose => (f.kind === "player" ? shown : f.kind === "villager" ? f.pose : STILL);
 
 const ONE = new Vector3(1, 1, 1);
 const base = new Matrix4();
@@ -240,8 +244,10 @@ function stepGesture(f: Folk, dt: number) {
 }
 
 /** Writes the surface frame to `base` and the torso bone (bob, waddle, lean, squash, hop) to `torso`. */
-function pose(f: Folk, i: number, lift: number): number {
+function pose(f: Folk, g: Pose, i: number, lift: number): number {
   frameAt(f.n, f.heading, base, lift, SCALE);
+  // lying down tips the whole body back about the feet, so the face ends up to the sky
+  if (g.lie) base.multiply(hang.makeRotationX((-g.lie * Math.PI) / 2));
   const step = Math.sin(f.phase);
   const bob = Math.abs(Math.cos(f.phase)) * 0.05 * f.amp;
   let hop = f.hop > 0 && f.hop < HOP ? Math.sin((Math.PI * f.hop) / HOP) * 0.45 : 0;
@@ -250,12 +256,8 @@ function pose(f: Folk, i: number, lift: number): number {
     const t = cel.t - (i % 12) * 0.05;
     if (t > 0 && t < 1.2) hop = Math.max(hop, Math.abs(Math.sin((Math.PI * t) / 0.6)) * 0.55);
   }
-  let roll = step * 0.13 * f.amp - f.lean * 0.12;
-  let squash = f.sq;
-  if (f.kind === "player") {
-    roll += shown.lean;
-    squash += shown.squash;
-  }
+  const roll = step * 0.13 * f.amp - f.lean * 0.12 + g.lean;
+  const squash = f.sq + g.squash;
   const pitch = 0.1 * f.amp;
   const sq = Math.max(-0.25, Math.min(0.25, squash));
   local.compose(v.set(0, bob + hop, 0), rotXZ(pitch, roll), s.set(1 + sq * 0.5, 1 - sq, 1 + sq * 0.5));
@@ -363,6 +365,8 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
       const f = folk[i];
       let turn = 0;
       let lift = 0;
+      /** what the shadow sits on: the ground, or a plinth top for a villager standing on one */
+      let floor = 0;
       if (f.kind === "player") {
         turn = stepPlayer(f, dt, stuck);
         stepDrop(f, dt);
@@ -372,6 +376,10 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
       } else if (f.kind === "keeper") turn = stepKeeper(f, dt);
       else {
         stepVillager(f, folk, dt, Math.random);
+        f.clock += dt;
+        chasePose(f.pose, poseOf(f.pin?.move ?? "rest", f.clock, reduced?.matches ? 0 : 1, aim), Math.min(1, dt * 4));
+        floor = f.lift;
+        lift = f.lift + f.pose.bounce;
         turn = f.turn;
         if (!ctl.frozen && arc(f.n, ctl.player.n) < GREET && !met.has(f.id) && !ctl.greeted.includes(f.id)) {
           ctl.greeted.push(f.id);
@@ -387,12 +395,13 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
         }
       }
       animate(f, dt, turn);
-      const step = pose(f, i, lift);
+      const g = poseFor(f);
+      const step = pose(f, g, i, lift);
 
       let skull = torso;
-      if (f.kind === "player" && shown.headYaw) {
+      if (g.headYaw) {
         // turn the head about the neck, not the feet
-        local.makeTranslation(0, HEAD_Y, 0).multiply(hang.makeRotationY(shown.headYaw));
+        local.makeTranslation(0, HEAD_Y, 0).multiply(hang.makeRotationY(g.headYaw));
         skull = headM.multiplyMatrices(torso, local).multiply(hang.makeTranslation(0, -HEAD_Y, 0));
       }
       head.setMatrixAt(i, skull);
@@ -415,22 +424,20 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
         const side = k ? 1 : -1;
         const swing = step * side * f.amp;
         // feet hang off the ground frame, not the torso, so the waddle never lifts them through the floor
-        const tap = f.kind === "player" && k ? shown.tap * 0.1 : 0;
+        const tap = k ? g.tap * 0.1 : 0;
         local.compose(
           v.set(side * 0.1, 0.06 + Math.max(0, swing) * 0.06 + tap, 0.03 + swing * 0.1 + tap * 0.4),
           q.identity(),
           s.set(0.09, 0.065, 0.125),
         );
         nub.setMatrixAt(i * 4 + k, local.premultiply(base));
-        let raise = 0.55;
-        let fwd = swing * 0.6;
-        let grow = 0;
+        // gestures lead with the right arm (k 0), the side away from the intro bubble
+        let raise = k ? g.armL : g.armR;
+        const fwd = swing * 0.6 * g.swing + (k ? g.fwdL : g.fwdR);
+        let grow = g.grow;
         if (f.kind === "player") {
-          // gestures lead with the right arm (k 0), the side away from the intro bubble
-          raise = k ? shown.armL : shown.armR;
-          fwd = fwd * shown.swing + (k ? shown.fwdL : shown.fwdR);
           raise += (2.3 + Math.sin(drop.t * 26 + k * 2) * 0.35 - raise) * drop.flail;
-          grow = Math.max(shown.grow, drop.flail);
+          grow = Math.max(grow, drop.flail);
         }
         // a raised arm steps out from the shoulder and grows, so the hand clears the head and reads at close range
         local.compose(
@@ -445,9 +452,9 @@ export function Crowd({ met, near, onOpen }: CrowdProps) {
         );
         nub.setMatrixAt(i * 4 + 2 + k, local.multiply(hang).premultiply(torso));
       }
-      // shadows stay on the ground and tighten as the player comes down to meet them
-      if (lift) frameAt(f.n, f.heading, base, 0, SCALE);
-      const shade = 1.15 * (1 - Math.min(0.45, lift * 0.13));
+      // shadows stay on the floor and tighten as the player comes down to meet them; a body lying down hides its own
+      if (lift !== floor || g.lie) frameAt(f.n, f.heading, base, floor, SCALE);
+      const shade = 1.15 * (1 - Math.min(0.45, (lift - floor) * 0.13)) * (1 - g.lie);
       local.compose(v.set(0, 0.02, 0), q.identity(), s.set(shade, 1, shade));
       blob.setMatrixAt(i, local.premultiply(base));
       if (f.kind === "player" && halo.current) {

@@ -1,5 +1,6 @@
 import { Matrix4, Quaternion, Vector3 } from "three";
 import { STATIONS, type StationId } from "@/data/stations";
+import { PLINTH_HEIGHT, PLINTH_SIZE } from "./dioramas";
 
 /** Planet radius. Every position on it is a unit vector; surface distance is angle times R. */
 export const R = 9;
@@ -64,6 +65,12 @@ export interface Landmark {
   n: Vector3;
   /** local +X+Z diagonal (the diorama's open corner) faces the hub */
   frame: Matrix4;
+  /** world to diorama space, for asking whether a point stands on the plinth */
+  inverse: Matrix4;
+  /** half the plinth edge, in diorama units */
+  half: number;
+  /** obstacle radius: a little past the plinth's inscribed circle so corners rarely clip */
+  footprint: number;
   door: Vector3;
   keeper: Vector3;
   /** keeper's resting heading, looking back toward the hub */
@@ -72,21 +79,23 @@ export interface Landmark {
 
 /** Dioramas were modelled for a flat island; on the planet they shrink so the world reads small. */
 export const LANDMARK_SCALE = 0.75;
-/** Footprint radius of a plinth, a little past its inscribed circle so corners rarely clip. */
-export const FOOTPRINT = 2.15 * LANDMARK_SCALE;
-const DOOR = 2.8 * LANDMARK_SCALE;
-
 function landmark(id: StationId, at: [number, number]): Landmark {
   const n = dirAt(...at);
   const hub = toward(n, NORTH_POLE, new Vector3());
   const b = new Vector3().crossVectors(n, hub);
   const z = hub.clone().sub(b).normalize();
-  const door = offset(n, hub, 0, DOOR);
-  const keeper = offset(n, hub, -0.85, DOOR - 0.25);
+  const half = PLINTH_SIZE[id] / 2;
+  const doorAt = (half + 1.2) * LANDMARK_SCALE;
+  const door = offset(n, hub, 0, doorAt);
+  const keeper = offset(n, hub, -0.85, doorAt - 0.25);
+  const frame = frameAt(n, z, new Matrix4(), 0, LANDMARK_SCALE);
   return {
     id,
     n,
-    frame: frameAt(n, z, new Matrix4(), 0, LANDMARK_SCALE),
+    frame,
+    inverse: frame.clone().invert(),
+    half,
+    footprint: half * 1.344 * LANDMARK_SCALE,
     door,
     keeper,
     keeperFacing: toward(keeper, NORTH_POLE, new Vector3()),
@@ -104,7 +113,25 @@ export interface Obstacle {
 }
 
 /** Mutable: props.ts appends trees and lamps once their scatter is generated. */
-export const OBSTACLES: Obstacle[] = STATIONS.map((s) => ({ n: LANDMARKS[s.id].n, r: FOOTPRINT }));
+export const OBSTACLES: Obstacle[] = STATIONS.map((s) => ({ n: LANDMARKS[s.id].n, r: LANDMARKS[s.id].footprint }));
+
+const LIST = STATIONS.map((s) => LANDMARKS[s.id]);
+const local = new Vector3();
+
+/** Height of the plinth top above the ground at n, or 0 off every plinth: what a walker steps up onto. */
+export function plinthLift(n: Vector3): number {
+  for (const l of LIST) {
+    if (n.dot(l.n) < 0.95) continue;
+    local.copy(n).multiplyScalar(R).applyMatrix4(l.inverse);
+    if (Math.abs(local.x) > l.half || Math.abs(local.z) > l.half) continue;
+    return local.setY(PLINTH_HEIGHT).applyMatrix4(l.frame).length() - R;
+  }
+  return 0;
+}
+
+/** The landmark whose footprint a walker of `radius` at n overlaps, if any. */
+export const footprintAt = (n: Vector3, radius: number): Landmark | undefined =>
+  LIST.find((l) => arc(n, l.n) < l.footprint + radius);
 
 /** Whether a walker of `radius` could never stand at n, because it lies inside an obstacle's footprint. */
 export const blocked = (n: Vector3, radius: number) => OBSTACLES.some((o) => arc(n, o.n) < o.r + radius);
@@ -118,9 +145,10 @@ const toGoal = new Vector3();
  * edge and turned into a slide, so a straight great-circle walk flows around landmarks.
  * Returns how hard the walker is pressed against something (0 free, 1 touching).
  */
-export function steer(n: Vector3, dir: Vector3, radius: number, goal: Vector3 | null): number {
+export function steer(n: Vector3, dir: Vector3, radius: number, goal: Vector3 | null, skip: Vector3 | null = null): number {
   let pressed = 0;
   for (const o of OBSTACLES) {
+    if (o.n === skip) continue;
     const reach = o.r + radius;
     const cos = n.dot(o.n);
     if (cos < Math.cos((reach + 1.2) / R)) continue;
@@ -141,9 +169,13 @@ export function steer(n: Vector3, dir: Vector3, radius: number, goal: Vector3 | 
   return pressed;
 }
 
-/** Hard constraint after a step: pops a walker back out of any footprint it slid into. */
-export function resolve(n: Vector3, radius: number, ...riders: Vector3[]) {
+/**
+ * Hard constraint after a step: pops a walker back out of any footprint it slid into.
+ * `skip` is the centre of a landmark the walker may stand on, for villagers working there.
+ */
+export function resolve(n: Vector3, radius: number, skip: Vector3 | null, ...riders: Vector3[]) {
   for (const o of OBSTACLES) {
+    if (o.n === skip) continue;
     const reach = o.r + radius;
     const d = arc(n, o.n);
     if (d >= reach) continue;

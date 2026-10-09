@@ -11,7 +11,13 @@ export type Gesture =
   | "idleSway"
   | "hop"
   | "greet"
-  | "celebrate";
+  | "celebrate"
+  /** villager work loops, played at a desk, gym spot or bed */
+  | "type"
+  | "run"
+  | "lift"
+  | "press"
+  | "sleep";
 
 export const IDLES = ["idleLook", "idleStretch", "idleTap", "idleSway"] as const satisfies readonly Gesture[];
 
@@ -36,9 +42,11 @@ export interface Pose {
   squash: number;
   /** lift of the left foot */
   tap: number;
+  /** 0 upright, 1 flat on the back, pivoting at the feet so the head ends up behind */
+  lie: number;
 }
 
-const KEYS = ["armR", "fwdR", "armL", "fwdL", "grow", "swing", "lean", "bounce", "headYaw", "squash", "tap"] as const;
+const KEYS = ["armR", "fwdR", "armL", "fwdL", "grow", "swing", "lean", "bounce", "headYaw", "squash", "tap", "lie"] as const;
 
 export const blankPose = (): Pose => ({
   armR: 0.55,
@@ -52,6 +60,7 @@ export const blankPose = (): Pose => ({
   headYaw: 0,
   squash: 0,
   tap: 0,
+  lie: 0,
 });
 
 const REST = blankPose();
@@ -191,6 +200,59 @@ const MOVES: Record<Gesture, Move> = {
       p.swing = 0;
     },
   },
+  type: {
+    // hunched at the keyboard, hands pecking out of step, an occasional glance across the screen
+    set(p, t, m) {
+      p.armR = p.armL = 0.3;
+      p.fwdR = 1.15 + Math.max(0, Math.sin(t * 17)) * 0.25 * m;
+      p.fwdL = 1.15 + Math.max(0, Math.sin(t * 17 + 2)) * 0.25 * m;
+      p.swing = 0;
+      p.headYaw = Math.sin(t * 0.7) * 0.25 * m;
+      p.bounce = -0.03 + Math.abs(Math.sin(t * 17)) * 0.008 * m;
+      p.squash = 0.06;
+    },
+  },
+  run: {
+    // the treadmill supplies the legs through the walk cycle; this pumps the arms harder
+    set(p, t, m) {
+      p.armR = p.armL = 0.35;
+      p.swing = 1.9;
+      p.bounce = Math.abs(Math.sin(t * 11)) * 0.05 * m;
+    },
+  },
+  lift: {
+    // squat and press: dip, then drive both hands overhead
+    set(p, t, m) {
+      const up = Math.max(0, Math.sin(t * 3.2)) * m;
+      p.armR = p.armL = 1.5 + up * 1.2;
+      p.fwdR = p.fwdL = 0.2;
+      p.grow = 0.4 + up * 0.6;
+      p.swing = 0;
+      p.bounce = -(1 - up) * 0.08 * m;
+      p.squash = (1 - up) * 0.12 * m - up * 0.06;
+    },
+  },
+  press: {
+    // flat on the bench, pushing the bar straight up off the chest
+    set(p, t, m) {
+      const up = (0.5 + Math.sin(t * 2.6) * 0.5) * m;
+      p.lie = 1;
+      p.armR = p.armL = 0.15;
+      p.fwdR = p.fwdL = Math.PI / 2;
+      p.grow = 0.2 + up * 0.8;
+      p.swing = 0;
+      p.squash = -up * 0.05;
+    },
+  },
+  sleep: {
+    set(p, t, m) {
+      p.lie = 1;
+      p.armR = p.armL = 0.25;
+      p.swing = 0;
+      p.headYaw = 0.35;
+      p.squash = Math.sin(t * 1.3) * 0.06 * m;
+    },
+  },
 };
 
 export const onceOf = (g: Gesture) => MOVES[g].once;
@@ -207,6 +269,12 @@ export function mixPose(a: Pose, b: Pose, k: number, out: Pose): Pose {
   const e = smooth(k);
   for (const key of KEYS) out[key] = a[key] + (b[key] - a[key]) * e;
   return out;
+}
+
+/** Eases `cur` toward `to` by `k` in [0, 1], for a pose that follows a changing target without a fixed blend clock. */
+export function chasePose(cur: Pose, to: Pose, k: number): Pose {
+  for (const key of KEYS) cur[key] += (to[key] - cur[key]) * k;
+  return cur;
 }
 
 /** Swaps the arms and every left-right sign, so a gesture can play on the other side. */

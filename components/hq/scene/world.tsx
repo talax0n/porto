@@ -20,7 +20,11 @@ const baseTile = new Color("#e9e7e2");
 const accent = new Color(ACCENT);
 const POP = 0.45;
 const tileGeo = paint(box(0.85, 0.06, 0.85, 0.06).clone(), TONE.white);
-const tileAt = new Matrix4().makeTranslation(1.05, PLINTH_HEIGHT + 0.03, 1.05);
+/** each plinth's front-right corner, wherever its edge is */
+const tileAt = STATIONS.map(({ id }) => {
+  const c = LANDMARKS[id].half - 0.55;
+  return new Matrix4().makeTranslation(c, PLINTH_HEIGHT + 0.03, c);
+});
 const m = new Matrix4();
 const scale = new Matrix4();
 const tint = new Color();
@@ -88,7 +92,7 @@ export function World({ near, inspecting, visited }: WorldProps) {
       const pulse = pulseT > 0 && pulseT < POP ? Math.sin((Math.PI * pulseT) / POP) : 0;
       const sx = 1 + 0.22 * bump + 0.18 * pulse + hot * 0.06;
       if (mesh) {
-        m.multiplyMatrices(LANDMARKS[id].frame, tileAt).multiply(scale.makeScale(sx, 1 + 0.5 * (bump + pulse), sx));
+        m.multiplyMatrices(LANDMARKS[id].frame, tileAt[i]).multiply(scale.makeScale(sx, 1 + 0.5 * (bump + pulse), sx));
         mesh.setMatrixAt(i, m);
         mesh.setColorAt(i, tint.lerpColors(baseTile, accent, t.lit));
       }

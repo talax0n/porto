@@ -273,7 +273,7 @@ export function buildDecals() {
   const plinths = STATIONS.map(({ id }) => {
     const { n, frame } = LANDMARKS[id];
     const fwd = new Vector3().setFromMatrixColumn(frame, 2);
-    return { n, fwd, size: PLINTH_SIZE * 2 * LANDMARK_SCALE };
+    return { n, fwd, size: PLINTH_SIZE[id] * 2 * LANDMARK_SCALE };
   });
   return { squares: many(plinths, 0.03), rounds: many(BLOBS, 0.035) };
 }

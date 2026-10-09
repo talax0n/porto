@@ -2,8 +2,9 @@ import { BufferGeometry, Color, ConeGeometry, Matrix4, PlaneGeometry, SphereGeom
 import { STATIONS, type StationId } from "@/data/stations";
 import { ACCENT, TONE, ball, cyl, merge, paint, part, pill, ring, type Part } from "./clay";
 import { IDENTITY } from "./dioramas";
+import { type Gesture, type Pose, blankPose } from "./gesture";
 import { rng, scatter } from "./props";
-import { LANDMARKS, NORTH_POLE, OBSTACLES, R, arc, flatten, resolve, steer, toward, walk } from "./planet";
+import { LANDMARKS, NORTH_POLE, OBSTACLES, R, arc, flatten, plinthLift, resolve, steer, toward, walk } from "./planet";
 
 export const VILLAGERS = 10;
 
@@ -119,11 +120,36 @@ interface Body {
 export type Folk = Body &
   (
     | { kind: "player" }
-    | { kind: "villager"; id: number; want: number; turn: number; timer: number; goal: Vector3 | null }
+    | {
+        kind: "villager";
+        id: number;
+        want: number;
+        turn: number;
+        timer: number;
+        goal: Vector3 | null;
+        /** centre of the landmark this villager may walk onto, while it heads to or from a spot there */
+        skip: Vector3 | null;
+        /** the spot it has settled into and holds: a desk, a gym machine, a bed */
+        pin: Post | null;
+        /** feet above the ground: a plinth top, a stool, a mattress */
+        lift: number;
+        /** the work loop's pose, chased toward the pin's move each frame */
+        pose: Pose;
+        clock: number;
+      }
     | { kind: "keeper"; station: StationId; post: Vector3; rest: Vector3 }
   );
 
 export type Villager = Extract<Folk, { kind: "villager" }>;
+
+/** A spot on the planet a villager settles into: where, facing which way, how high, doing what. */
+export interface Post {
+  n: Vector3;
+  heading: Vector3;
+  lift: number;
+  move: Gesture;
+  pace?: number;
+}
 
 const rest = (): Omit<Body, "n" | "heading" | "hat" | "hatColor" | "skin" | "shirt" | "foot"> => ({
   speed: 0,
@@ -187,6 +213,11 @@ export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
       turn: 0,
       timer: rand() * 3,
       goal: null,
+      skip: null,
+      pin: null,
+      lift: 0,
+      pose: blankPose(),
+      clock: 0,
       hat,
       hatColor: pick(hat === "ears" ? EARS : HAT),
       skin: pick(SKIN),
@@ -207,12 +238,20 @@ const dir = new Vector3();
 const push = new Vector3();
 const tmp = new Vector3();
 
-/** Random-walk steering: wander, keep a little apart, give the player and props room. */
+/** Random-walk steering: wander, keep a little apart, give the player and props room. A pinned villager just settles. */
 export function stepVillager(f: Villager, crowd: Folk[], dt: number, rand: () => number) {
+  const pin = f.pin;
+  if (pin) settle(f, pin, dt);
+  else roam(f, crowd, dt, rand);
+  f.lift += ((pin ? pin.lift : plinthLift(f.n)) - f.lift) * Math.min(1, dt * 8);
+}
+
+function roam(f: Villager, crowd: Folk[], dt: number, rand: () => number) {
   const goal = f.goal;
   if (goal) {
     toward(f.n, goal, dir);
-    f.want = arc(f.n, goal) > ARRIVE ? WALK * 1.3 : 0;
+    // spots on a plinth sit close together, so walk right up to them
+    f.want = arc(f.n, goal) > (f.skip ? 0.25 : ARRIVE) ? WALK * 1.3 : 0;
     f.turn = 0;
   } else {
     f.timer -= dt;
@@ -237,7 +276,7 @@ export function stepVillager(f: Villager, crowd: Folk[], dt: number, rand: () =>
   const crowded = push.lengthSq() > 0.04;
   dir.addScaledVector(push, 2.5);
   flatten(dir, f.n);
-  const pressed = steer(f.n, dir, RADIUS, goal);
+  const pressed = steer(f.n, dir, RADIUS, goal, f.skip);
   // turning the body is what makes the wander read as walking, not sliding
   f.heading.lerp(dir, Math.min(1, dt * 4));
   flatten(f.heading, f.n);
@@ -246,10 +285,20 @@ export function stepVillager(f: Villager, crowd: Folk[], dt: number, rand: () =>
   move(f, dt);
 }
 
+/** Slides onto a pinned spot and turns to face its way, then holds there; `pace` keeps a treadmill runner's legs going. */
+function settle(f: Villager, pin: Post, dt: number) {
+  const d = arc(f.n, pin.n);
+  if (d > 1e-3) walk(f.n, toward(f.n, pin.n, dir), Math.min(d, dt * WALK * 0.6), f.heading);
+  f.heading.lerp(pin.heading, Math.min(1, dt * 5));
+  flatten(f.heading, f.n);
+  f.speed = d > 0.05 ? WALK * 0.5 : (pin.pace ?? 0);
+  f.want = f.turn = 0;
+}
+
 /** Advances along the heading by the current speed and keeps clear of footprints. */
 export function move(f: Folk, dt: number, along: Vector3 = f.heading, ...riders: Vector3[]) {
   if (f.speed > 1e-3) walk(f.n, along, f.speed * dt, f.heading, ...riders);
-  resolve(f.n, RADIUS, f.heading, ...riders);
+  resolve(f.n, RADIUS, f.kind === "villager" ? f.skip : null, f.heading, ...riders);
 }
 
 const SQ_SPRING = 170;
