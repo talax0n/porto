@@ -9,8 +9,8 @@ import { ctl } from "../game";
 import { R } from "./planet";
 
 const side = new Vector3();
-/** from the bubble anchor up to just over the hair, so the phone thread never covers the face */
-const HEAD_TOP = 0.55;
+/** from the bubble anchor up past the hat with room for the cheer hop, so the phone thread never covers the head */
+const HEAD_TOP = 0.8;
 const touch =
   typeof window !== "undefined" &&
   window.matchMedia("(pointer: coarse)").matches;

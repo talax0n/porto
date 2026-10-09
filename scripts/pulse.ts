@@ -139,6 +139,7 @@ function scan(): Pulse {
 
 let sent = "";
 let sentAt = 0;
+let down = false;
 
 async function tick() {
   const body = JSON.stringify(scan());
@@ -153,10 +154,13 @@ async function tick() {
       signal: AbortSignal.timeout(10_000),
     });
     if (res.ok) sent = body;
+    down = false;
     const p: Pulse = JSON.parse(body);
     console.log(`${new Date().toISOString()} post ${res.status} agents=${p.agents.length} runs=${p.runsToday}`);
   } catch {
-    console.log(`${new Date().toISOString()} post failed (network)`);
+    // the site is often just not running locally; say so once, not every 5s
+    if (!down) console.log(`${new Date().toISOString()} post failed (network), retrying quietly`);
+    down = true;
   }
 }
 
