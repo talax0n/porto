@@ -35,6 +35,7 @@ import {
 import { IDLES, type Gesture, type Pose, blankPose, chasePose, mirrorPose, mixPose, onceOf, poseOf } from "./gesture";
 import { LANDMARKS, R, arc, flatten, frameAt, steer, toward } from "./planet";
 import { blobTexture } from "./props";
+import { TIME_SCALE } from "./work";
 
 const SPEED = 3.2;
 const TURN = 10;
@@ -350,7 +351,7 @@ export function Crowd({ near, onOpen }: CrowdProps) {
   }, []);
 
   useFrame((_, rawDt) => {
-    const dt = Math.min(rawDt, 0.1);
+    const dt = Math.min(rawDt, 0.1) * TIME_SCALE;
     const { head, face, body, nub, blob, beanie, cap, ears } = meshes;
     if (!head || !face || !body || !nub || !blob || !beanie || !cap || !ears) return;
     slot.beanie = slot.cap = slot.ears = 0;

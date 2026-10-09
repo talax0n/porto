@@ -22,6 +22,11 @@ export type Activity =
   | { s: "bedtime"; agent: Agent; bed: number }
   | { s: "asleep"; agent: Agent; bed: number; since: number };
 
+/** dev only: `?speed=10` runs the crowd and its timers 10× so a headless check finishes in seconds */
+export const TIME_SCALE =
+  process.env.NODE_ENV !== "production" && typeof window !== "undefined"
+    ? Number(new URLSearchParams(window.location.search).get("speed")) || 1
+    : 1;
 /** seconds a finished agent's villager sleeps before its slot empties */
 const NAP = 180;
 /** how close counts as there; the villager then settles the rest of the way in */
