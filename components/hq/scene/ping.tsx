@@ -58,8 +58,15 @@ const cross = flat(mergeGeometries([bar(Math.PI / 4), bar(-Math.PI / 4)]));
 const dot = flat(new CircleGeometry(0.22, 20));
 const halo = flat(new RingGeometry(0.88, 1, 40));
 
-// drawn over props and the player: a command under a character's feet must still read
-const mat = new MeshBasicMaterial({ transparent: true, depthWrite: false, depthTest: false, toneMapped: false });
+// a decal on the ground: characters and props standing on it hide it, the offset only beats z-fighting
+const mat = new MeshBasicMaterial({
+  transparent: true,
+  depthWrite: false,
+  toneMapped: false,
+  polygonOffset: true,
+  polygonOffsetFactor: -2,
+  polygonOffsetUnits: -2,
+});
 const fwd = new Vector3();
 
 /**
