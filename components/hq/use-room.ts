@@ -48,12 +48,17 @@ function savedName(): string {
 function ownerKey(): string | null {
   try {
     const url = new globalThis.URL(location.href);
-    const given = url.searchParams.get("owner");
-    if (given !== null) {
+    // read raw, since searchParams turns a base64 key's `+` into a space
+    const raw = /[?&]owner=([^&#]*)/.exec(url.search)?.[1];
+    if (raw !== undefined) {
       url.searchParams.delete("owner");
       history.replaceState(history.state, "", url);
+      const given = decodeURIComponent(raw).trim();
       if (OWNER_KEY.test(given)) localStorage.setItem(OWNER, given);
-      else localStorage.removeItem(OWNER);
+      else {
+        localStorage.removeItem(OWNER);
+        console.warn("owner key ignored: it must be 16 to 256 printable characters with no spaces");
+      }
     }
     return localStorage.getItem(OWNER);
   } catch {

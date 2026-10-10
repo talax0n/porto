@@ -22,7 +22,8 @@ const sha = async (s: string) => crypto.subtle.digest("SHA-256", new TextEncoder
 /** hashing first gives equal lengths, so the comparison takes the same time whatever the guess */
 async function isOwner(key: string, env: Env) {
   if (!env.OWNER_KEY) return false;
-  return crypto.subtle.timingSafeEqual(await sha(key), await sha(env.OWNER_KEY));
+  // `echo key | wrangler secret put` stores the newline too
+  return crypto.subtle.timingSafeEqual(await sha(key), await sha(env.OWNER_KEY.trim()));
 }
 
 const same = (a: Vec, b: Vec) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
