@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { PRESETS, ROOM_CAP, cleanSay, parseClient, parseServer } from "../data/room.ts";
+import { NAME_MAX, PRESETS, ROOM_CAP, cleanName, cleanSay, nameFor, parseClient, parseServer } from "../data/room.ts";
 
 const n = [0, 1, 0];
 const h = [0, 0, 1];
@@ -22,6 +22,31 @@ assert.equal(cleanSay("<img src=x onerror=alert(1)>"), "<img src=x onerror=alert
 for (const p of PRESETS) assert.equal(cleanSay(p), p, `preset survives its own filter: ${p}`);
 for (const s of ["a *** b", "hi 👋", "ok"]) assert.equal(cleanSay(cleanSay(s)), cleanSay(s), "idempotent");
 
+// names
+assert.equal(cleanName("Mossy Otter"), "Mossy Otter");
+assert.equal(cleanName("  Théo  99 "), "Théo 99", "trimmed, spaces collapsed, letters and digits of any script");
+assert.equal(cleanName("a".repeat(16)), "a".repeat(16), "exactly the limit");
+assert.equal(cleanName("a".repeat(17)), null, "too long is refused, not cut");
+assert.equal(cleanName("abc 😀 def"), "abc def", "emoji stripped");
+assert.equal(cleanName("<b>x</b>"), "bxb", "markup characters stripped");
+assert.equal(cleanName("fuck"), null, "blocked word");
+assert.equal(cleanName("FUCKer"), null, "blocked prefix");
+assert.equal(cleanName("Scunthorpe"), "Scunthorpe");
+assert.equal(cleanName("https://evil.io"), null, "a link leaves nothing");
+assert.equal(cleanName("bob@corp.com"), null, "an address leaves nothing");
+assert.equal(cleanName("Bob https://x.io"), "Bob", "link stripped, rest kept");
+assert.equal(cleanName(""), null);
+assert.equal(cleanName("   \n\t "), null);
+assert.equal(cleanName(7), null);
+assert.equal(cleanName(cleanName("  Mr.  O'Neil!  ")), cleanName("Mr. O'Neil!"), "idempotent");
+assert.equal(nameFor(0), nameFor(0), "deterministic");
+assert.notEqual(nameFor(1), nameFor(2));
+for (let i = 0; i < 5000; i++) {
+  const seed = (i * 2654435761) >>> 0;
+  assert.equal(cleanName(nameFor(seed)), nameFor(seed), `generated name is valid: ${nameFor(seed)}`);
+  assert.ok(nameFor(seed).length <= NAME_MAX);
+}
+
 // client -> server
 assert.deepEqual(parseClient(enc({ t: "move", n, h })), { t: "move", n, h });
 assert.deepEqual(parseClient(enc({ t: "move", n: [0.00049, 0.99999, 0], h })), { t: "move", n: [0, 1, 0], h }, "rounded to 3 decimals");
@@ -35,8 +60,14 @@ assert.equal(parseClient(enc({ t: "say", text: "https://x.io" })), null, "nothin
 assert.equal(parseClient(enc({ t: "say", text: "hi", id: "a1b2c3" })), null, "cannot speak as another id");
 assert.deepEqual(parseClient(enc({ t: "emote", e: "wave" })), { t: "emote", e: "wave" });
 assert.equal(parseClient(enc({ t: "emote", e: "sleep" })), null, "unknown emote");
-assert.deepEqual(parseClient(enc({ t: "preset", p: 5 })), { t: "preset", p: 5 });
-for (const p of [6, -1, 1.5, "0"]) assert.equal(parseClient(enc({ t: "preset", p })), null, `bad preset ${p}`);
+assert.deepEqual(parseClient(enc({ t: "preset", p: 4 })), { t: "preset", p: 4 });
+for (const p of [5, -1, 1.5, "0"]) assert.equal(parseClient(enc({ t: "preset", p })), null, `bad preset ${p}`);
+assert.deepEqual(parseClient(enc({ t: "name", name: "  Mossy   Otter " })), { t: "name", name: "Mossy Otter" });
+assert.equal(parseClient(enc({ t: "name", name: "a".repeat(17) })), null, "name too long");
+assert.equal(parseClient(enc({ t: "name", name: "shit" })), null, "blocked name");
+assert.equal(parseClient(enc({ t: "name", name: "" })), null, "empty name");
+assert.equal(parseClient(enc({ t: "name", name: "Bob", id: "a1b2c3" })), null, "cannot rename another id");
+assert.equal(parseClient(enc({ t: "name" })), null, "missing name");
 assert.equal(parseClient("not json"), null);
 assert.equal(parseClient("[1]"), null);
 assert.equal(parseClient(enc({ t: "kick", id: "a1b2c3" })), null);
@@ -57,6 +88,10 @@ assert.deepEqual(parseServer(enc({ t: "move", id: "a1b2c3", n, h })), { t: "move
 assert.deepEqual(parseServer(enc({ t: "say", id: "a1b2c3", text: "hi!" })), { t: "say", id: "a1b2c3", text: "hi!" });
 assert.equal(parseServer(enc({ t: "say", id: "a1b2c3", text: "see https://x.io" })), null, "server text must already be clean");
 assert.deepEqual(parseServer(enc({ t: "emote", id: "a1b2c3", e: "cheer" })), { t: "emote", id: "a1b2c3", e: "cheer" });
+assert.deepEqual(parseServer(enc({ t: "name", id: "a1b2c3", name: "Mossy Otter" })), { t: "name", id: "a1b2c3", name: "Mossy Otter" });
+assert.equal(parseServer(enc({ t: "name", id: "a1b2c3", name: " Mossy Otter" })), null, "server names must already be clean");
+assert.equal(parseServer(enc({ t: "name", id: "A1B2C3", name: "x" })), null, "uppercase id");
+assert.equal(parseServer(enc({ t: "name", id: "a1b2c3", name: "x", extra: 1 })), null, "extra key");
 assert.deepEqual(parseServer(enc({ t: "full" })), { t: "full" });
 assert.equal(parseServer(enc({ t: "full", why: "x" })), null);
 assert.equal(parseServer(undefined), null);

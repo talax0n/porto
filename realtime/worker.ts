@@ -8,12 +8,13 @@ interface Env {
 }
 
 /** Survives hibernation on the socket itself. `n` and `h` stay null until the first move, so nobody appears at a default spot. */
-type Seat = { id: PeerId; look: number; n: Vec | null; h: Vec | null };
+type Seat = { id: PeerId; look: number; n: Vec | null; h: Vec | null; name?: string };
 
 /** speech tokens: a burst of 4, one more every 2s; position updates are held to ~16Hz */
 const BURST = 4;
 const REFILL = 2000;
 const MOVE_GAP = 60;
+const RENAME_GAP = 3000;
 
 const same = (a: Vec, b: Vec) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 
@@ -32,7 +33,7 @@ export default {
 
 export class Room extends DurableObject<Env> {
   /** lost when the object hibernates, which only happens once every socket has been idle for a while */
-  private limits = new WeakMap<WebSocket, { tokens: number; at: number; move: number }>();
+  private limits = new WeakMap<WebSocket, { tokens: number; at: number; move: number; name: number }>();
 
   private seats(except?: WebSocket) {
     const out: { ws: WebSocket; seat: Seat }[] = [];
@@ -75,6 +76,8 @@ export class Room extends DurableObject<Env> {
     server.serializeAttachment(seat);
     const peers = seated.flatMap(({ seat: s }) => (s.n && s.h ? [{ id: s.id, look: s.look, n: s.n, h: s.h }] : []));
     this.send(server, { t: "hello", you: id, peers });
+    // names ride their own message: deployed clients reject a peer with an unknown key
+    for (const { seat: s } of seated) if (s.n && s.name) this.send(server, { t: "name", id: s.id, name: s.name });
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -83,7 +86,7 @@ export class Room extends DurableObject<Env> {
     const msg = typeof data === "string" ? parseClient(data) : null;
     if (!seat || !msg) return;
     const now = Date.now();
-    const lim = this.limits.get(ws) ?? { tokens: BURST, at: now, move: 0 };
+    const lim = this.limits.get(ws) ?? { tokens: BURST, at: now, move: 0, name: 0 };
     this.limits.set(ws, lim);
 
     if (msg.t === "move") {
@@ -96,6 +99,18 @@ export class Room extends DurableObject<Env> {
       ws.serializeAttachment(seat);
       const peer: Peer = { id: seat.id, look: seat.look, n: msg.n, h: msg.h };
       this.broadcast(joining ? { t: "join", peer } : { t: "move", id: seat.id, n: msg.n, h: msg.h }, ws);
+      if (joining && seat.name) this.broadcast({ t: "name", id: seat.id, name: seat.name }, ws);
+      return;
+    }
+
+    if (msg.t === "name") {
+      if (now - lim.name < RENAME_GAP) return;
+      lim.name = now;
+      seat.name = msg.name;
+      ws.serializeAttachment(seat);
+      const named: ServerMsg = { t: "name", id: seat.id, name: msg.name };
+      this.send(ws, named);
+      if (seat.n) this.broadcast(named, ws);
       return;
     }
 
