@@ -111,6 +111,8 @@ export const LANDMARKS = Object.fromEntries(STATIONS.map((s) => [s.id, landmark(
 export interface Obstacle {
   n: Vector3;
   r: number;
+  /** water: the player swims through it, villagers keep to the beach */
+  sea?: true;
 }
 
 /** Seas as discs: centre (polar, azimuth) and radius, in degrees. The southern ocean sends bays up between the stations. */
@@ -181,7 +183,7 @@ export const seaUniform = () => ({ value: SEAS.map(({ n, r }) => new Vector4(n.x
 export const OBSTACLES: Obstacle[] = [
   ...STATIONS.map((s) => ({ n: LANDMARKS[s.id].n, r: LANDMARKS[s.id].footprint })),
   // a disc can't follow the coast, so where a lobe reaches furthest out a walker wades in ankle-deep
-  ...SEAS.map(({ n, r }) => ({ n, r: r + WOBBLE * 0.35 })),
+  ...SEAS.map(({ n, r }) => ({ n, r: r + WOBBLE * 0.35, sea: true as const })),
 ];
 
 const LIST = STATIONS.map((s) => LANDMARKS[s.id]);
@@ -203,7 +205,20 @@ export const footprintAt = (n: Vector3, radius: number): Landmark | undefined =>
   LIST.find((l) => arc(n, l.n) < l.footprint + radius);
 
 /** Whether a walker of `radius` could never stand at n, because it lies inside an obstacle's footprint. */
-export const blocked = (n: Vector3, radius: number) => OBSTACLES.some((o) => arc(n, o.n) < o.r + radius);
+export const blocked = (n: Vector3, radius: number, swim = false) =>
+  OBSTACLES.some((o) => !(swim && o.sea) && arc(n, o.n) < o.r + radius);
+
+/** How far the feet sink into the water before the body floats and swims. */
+const SINK = 0.3;
+/** Water depth at n: 0 on dry land. */
+export const depthAt = (n: Vector3) => Math.max(0, SEA_LEVEL - seabed(coast(n)));
+/** Deep enough that walking turns into swimming. */
+export const swimming = (n: Vector3) => depthAt(n) > SINK * 0.7;
+/** Where feet rest at n: a plinth top, the shelving beach and seabed, or treading water once it's deep. */
+export function standLift(n: Vector3): number {
+  const k = coast(n);
+  return k < -0.7 ? plinthLift(n) : Math.max(seabed(k), SEA_LEVEL - SINK);
+}
 
 const away = new Vector3();
 const perp = new Vector3();
@@ -214,10 +229,10 @@ const toGoal = new Vector3();
  * edge and turned into a slide, so a straight great-circle walk flows around landmarks.
  * Returns how hard the walker is pressed against something (0 free, 1 touching).
  */
-export function steer(n: Vector3, dir: Vector3, radius: number, goal: Vector3 | null, skip: Vector3 | null = null): number {
+export function steer(n: Vector3, dir: Vector3, radius: number, goal: Vector3 | null, skip: Vector3 | null = null, swim = false): number {
   let pressed = 0;
   for (const o of OBSTACLES) {
-    if (o.n === skip) continue;
+    if (o.n === skip || (swim && o.sea)) continue;
     const reach = o.r + radius;
     const cos = n.dot(o.n);
     if (cos < Math.cos((reach + 1.2) / R)) continue;
@@ -242,9 +257,9 @@ export function steer(n: Vector3, dir: Vector3, radius: number, goal: Vector3 | 
  * Hard constraint after a step: pops a walker back out of any footprint it slid into.
  * `skip` is the centre of a landmark the walker may stand on, for villagers working there.
  */
-export function resolve(n: Vector3, radius: number, skip: Vector3 | null, ...riders: Vector3[]) {
+export function resolve(n: Vector3, radius: number, skip: Vector3 | null, swim: boolean, ...riders: Vector3[]) {
   for (const o of OBSTACLES) {
-    if (o.n === skip) continue;
+    if (o.n === skip || (swim && o.sea)) continue;
     const reach = o.r + radius;
     const d = arc(n, o.n);
     if (d >= reach) continue;

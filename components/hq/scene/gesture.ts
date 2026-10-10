@@ -11,6 +11,9 @@ export type Gesture =
   | "idleSway"
   | "hop"
   | "celebrate"
+  /** the player's own moves: arms up for a jump, a crawl stroke in deep water */
+  | "jump"
+  | "swim"
   /** villager work loops, played at a desk, gym spot or bed */
   | "type"
   | "run"
@@ -179,6 +182,31 @@ const MOVES: Record<Gesture, Move> = {
       p.swing = 0;
       p.bounce = air * 0.42 * m;
       p.squash = (t < 0.45 ? -air * 0.14 : Math.sin(((t - 0.45) / 0.25) * Math.PI) * 0.16) * m;
+    },
+  },
+  jump: {
+    // physics in crowd.tsx lifts the body; this throws the arms up and tucks back down on the way in
+    once: 0.6,
+    set(p, t) {
+      const up = smooth(t / 0.12) * (1 - smooth((t - 0.35) / 0.25));
+      p.armR = p.armL = 0.55 + up * 1.9;
+      p.fwdR = p.fwdL = 0.2 * up;
+      p.grow = up;
+      p.swing = 0;
+    },
+  },
+  swim: {
+    // a front crawl: the arms wheel half a turn apart, the body rolls into each stroke and bobs
+    set(p, t, m) {
+      const a = t * 4.5;
+      p.armR = 1.7 + Math.sin(a) * 1.0 * m;
+      p.armL = 1.7 - Math.sin(a) * 1.0 * m;
+      p.fwdR = 0.7 + Math.cos(a) * 0.6 * m;
+      p.fwdL = 0.7 - Math.cos(a) * 0.6 * m;
+      p.grow = 1;
+      p.swing = 0;
+      p.lean = Math.sin(a) * 0.12 * m;
+      p.bounce = Math.sin(t * 2.2) * 0.03 * m;
     },
   },
   celebrate: {

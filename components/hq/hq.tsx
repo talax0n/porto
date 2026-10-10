@@ -9,7 +9,7 @@ import { EdgeArrows, MapChrome, Minimap } from "./hud/map";
 import { Sky } from "./sky";
 import { Today } from "./hud/today";
 import { Panel } from "./hud/panel";
-import { Stick } from "./hud/stick";
+import { JumpButton, Stick } from "./hud/stick";
 import { IntroControls } from "./scene/intro";
 import { useHQ } from "./use-hq";
 import { useRoom } from "./use-room";
@@ -88,6 +88,11 @@ export function HQ() {
       {state.mode === "exploring" && (
         <div className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] z-20 hidden pointer-coarse:block sm:bottom-20 sm:left-5">
           <Stick />
+        </div>
+      )}
+      {state.mode === "exploring" && (
+        <div className="absolute right-[max(1rem,env(safe-area-inset-right))] bottom-[calc(13rem+env(safe-area-inset-bottom))] z-20 hidden pointer-coarse:block sm:right-5 sm:bottom-44">
+          <JumpButton />
         </div>
       )}
       {state.mode === "exploring" && <Chat room={room} />}

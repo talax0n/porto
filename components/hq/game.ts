@@ -128,6 +128,8 @@ export interface Controls {
   keys: Set<string>;
   /** the touch joystick: screen-right and screen-up in [-1, 1], length ≤ 1, dead zone already applied */
   stick: { x: number; y: number };
+  /** a jump asked for by Space or the touch button, taken by the scene on its next frame */
+  jump: boolean;
   zoomMul: number;
   frozen: boolean;
   focus: StationId | null;
@@ -176,6 +178,7 @@ export const ctl: Controls = {
   target: null,
   keys: new Set(),
   stick: { x: 0, y: 0 },
+  jump: false,
   zoomMul: 1,
   frozen: false,
   focus: null,

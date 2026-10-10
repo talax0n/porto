@@ -256,6 +256,12 @@ export function useHQ() {
           e.preventDefault();
           ctl.keys.add(e.code);
         }
+      } else if (e.code === "Space") {
+        // a focused button keeps Space as its own click
+        if (stateRef.current.mode === "exploring" && !(e.target instanceof HTMLButtonElement)) {
+          e.preventDefault();
+          if (!e.repeat) ctl.jump = true;
+        }
       } else if (e.code === "KeyE" || e.code === "Enter") {
         if (!(e.target instanceof HTMLButtonElement || e.target instanceof HTMLAnchorElement)) interact();
       } else if (e.code === "Escape") {

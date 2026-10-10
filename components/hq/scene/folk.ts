@@ -6,7 +6,7 @@ import { ACCENT, TONE, ball, cone, cyl, merge, paint, part, pill, ring, type Par
 import { IDENTITY } from "./dioramas";
 import { type Gesture, type Pose, blankPose, chasePose, onceOf, poseOf } from "./gesture";
 import { rng, scatter } from "./props";
-import { LANDMARKS, NORTH_POLE, OBSTACLES, R, arc, flatten, plinthLift, resolve, steer, toward, walk } from "./planet";
+import { LANDMARKS, NORTH_POLE, OBSTACLES, R, arc, flatten, plinthLift, resolve, standLift, steer, swimming, toward, walk } from "./planet";
 
 /** one villager slot per agent the pulse can carry; a slot only shows while an agent holds it */
 export const VILLAGERS = MAX_AGENTS;
@@ -401,7 +401,7 @@ export function stepVisitor(f: Visitor, dt: number, motion: number, aim: Pose): 
   const off = Math.atan2(dir.dot(f.n), f.heading.dot(f.face));
   f.heading.applyAxisAngle(f.n, off * Math.min(1, dt * 10));
   flatten(f.heading, f.n);
-  f.lift += (plinthLift(f.n) - f.lift) * Math.min(1, dt * 8);
+  f.lift += (standLift(f.n) - f.lift) * Math.min(1, dt * 8);
   if (f.emote) {
     f.gest = f.emote;
     f.clock = 0;
@@ -409,7 +409,7 @@ export function stepVisitor(f: Visitor, dt: number, motion: number, aim: Pose): 
   }
   f.clock += dt;
   if (f.gest !== "rest" && f.clock > (onceOf(f.gest) ?? EMOTE_FOR)) f.gest = "rest";
-  chasePose(f.pose, poseOf(f.gest, f.clock, motion, aim), Math.min(1, dt * 8));
+  chasePose(f.pose, poseOf(f.gest === "rest" && swimming(f.n) ? "swim" : f.gest, f.clock, motion, aim), Math.min(1, dt * 8));
   return off * 0.3;
 }
 
@@ -426,7 +426,7 @@ function settle(f: Villager, pin: Post, dt: number) {
 /** Advances along the heading by the current speed and keeps clear of footprints. */
 export function move(f: Folk, dt: number, along: Vector3 = f.heading, ...riders: Vector3[]) {
   if (f.speed > 1e-3) walk(f.n, along, f.speed * dt, f.heading, ...riders);
-  resolve(f.n, RADIUS, f.kind === "villager" ? f.skip : null, f.heading, ...riders);
+  resolve(f.n, RADIUS, f.kind === "villager" ? f.skip : null, f.kind === "player", f.heading, ...riders);
 }
 
 const SQ_SPRING = 170;

@@ -37,11 +37,15 @@ import {
   stepVisitor,
 } from "./folk";
 import { IDLES, type Gesture, type Pose, blankPose, chasePose, mirrorPose, mixPose, onceOf, poseOf } from "./gesture";
-import { LANDMARKS, R, arc, flatten, frameAt, steer, toward } from "./planet";
+import { LANDMARKS, R, SEA_LEVEL, arc, depthAt, flatten, frameAt, standLift, steer, swimming, toward } from "./planet";
 import { blobTexture } from "./props";
 import { TIME_SCALE } from "./work";
 
 const SPEED = 3.2;
+/** swimming is slower than walking */
+const STROKE = 0.55;
+/** take-off speed: with GRAVITY that clears about 0.6 units, a little over the plinths' edges */
+const JUMP = 4.4;
 const TURN = 10;
 
 const folk = makeCrowd(ctl.player);
@@ -72,8 +76,11 @@ const reduced = typeof window === "undefined" ? null : window.matchMedia("(prefe
 /** the player's intro clocks: vertical speed, a free-running hover clock, crouch, flail blend */
 const drop = { vy: 0, t: 0, wind: 0, flail: 0, last: ctl.intro };
 /** one dust ring for whoever touched down last, the player or an agent dropping in */
-const puffAt = { n: new Vector3(), heading: new Vector3(), t: Infinity };
-function land(f: Folk) {
+const puffAt = { n: new Vector3(), heading: new Vector3(), t: Infinity, lift: 0 };
+/** the player's own jump and the water they're in */
+const self = { vy: 0, ground: 0, wet: false };
+function land(f: Folk, lift = 0) {
+  puffAt.lift = lift;
   puffAt.n.copy(f.n);
   puffAt.heading.copy(f.heading);
   puffAt.t = 0;
@@ -146,7 +153,8 @@ function stepPlayer(f: Folk, dt: number, stuck: { t: number }): number {
       want = Math.min(SPEED, left * 4 + 0.5);
     }
   }
-  if (want > 0) steer(p.n, dir, RADIUS, ctl.target?.n ?? null);
+  if (self.wet) want *= STROKE;
+  if (want > 0) steer(p.n, dir, RADIUS, ctl.target?.n ?? null, null, true);
   f.speed += (want - f.speed) * Math.min(1, dt * (want ? 9 : 12));
 
   const turn = want > 0 ? Math.atan2(v.crossVectors(p.heading, dir).dot(p.n), p.heading.dot(dir)) : 0;
@@ -228,6 +236,34 @@ function stepDrop(f: Folk, dt: number) {
   }
 }
 
+/** Space or the touch button: a hop with gravity on land, and the step into and out of water. */
+function stepBody(f: Folk, dt: number) {
+  const p = ctl.player;
+  const ask = ctl.jump;
+  ctl.jump = false;
+  if (ctl.intro !== "ground") return;
+  self.ground += (standLift(p.n) - self.ground) * Math.min(1, dt * 8);
+  const wet = swimming(p.n);
+  if (wet !== self.wet) {
+    self.wet = wet;
+    setGesture(wet ? "swim" : "rest");
+    if (wet) land(f, SEA_LEVEL);
+  }
+  if (ask && !wet && ctl.alt === 0) {
+    self.vy = JUMP;
+    setGesture("jump");
+  }
+  if (self.vy === 0 && ctl.alt === 0) return;
+  self.vy -= GRAVITY * dt;
+  ctl.alt += self.vy * dt;
+  f.sq = Math.max(-0.2, Math.min(0, self.vy * 0.015));
+  f.sqv = 0;
+  if (ctl.alt > 0) return;
+  f.sqv = Math.min(5, -self.vy * 0.5);
+  ctl.alt = self.vy = 0;
+  if (!reduced?.matches) land(f, self.ground);
+}
+
 /** An agent's villager falling in: gravity, a stretch on the way down, a squash and a puff on touchdown. */
 function stepFall(f: Villager, dt: number) {
   f.vy -= GRAVITY * dt;
@@ -251,7 +287,7 @@ function stepGesture(f: Folk, dt: number) {
     if (f.speed > 0.05 || ctl.target) {
       idle.t = 0;
       if (isIdle(g.current)) setGesture("rest");
-    } else if (motion && (g.current === "rest" || isIdle(g.current))) {
+    } else if (motion && !self.wet && (g.current === "rest" || isIdle(g.current))) {
       idle.t += dt;
       if (idle.t > IDLE_AFTER && (g.current === "rest" || g.t > IDLE_EACH)) {
         let next: Gesture;
@@ -410,9 +446,11 @@ export function Crowd({ near, onOpen }: CrowdProps) {
       if (f.kind === "player") {
         turn = stepPlayer(f, dt, stuck);
         stepDrop(f, dt);
+        stepBody(f, dt);
         stepGesture(f, dt);
+        floor = ctl.intro === "ground" ? self.ground : 0;
         // gesture bounces lift the whole body, feet and all, unlike the torso-only greeting hop
-        lift = ctl.alt + shown.bounce + (ctl.intro === "hover" && !reduced?.matches ? Math.sin(drop.t * 2.2) * 0.07 : 0);
+        lift = floor + ctl.alt + shown.bounce + (ctl.intro === "hover" && !reduced?.matches ? Math.sin(drop.t * 2.2) * 0.07 : 0);
       } else if (f.kind === "keeper") turn = stepKeeper(f, dt);
       else if (f.kind === "visitor") {
         turn = stepVisitor(f, dt, reduced?.matches ? 0 : 1, aim);
@@ -484,12 +522,14 @@ export function Crowd({ near, onOpen }: CrowdProps) {
       }
       // shadows stay on the floor and tighten as the player comes down to meet them; a body lying down hides its own
       if (lift !== floor || g.lie) frameAt(f.n, f.heading, base, floor, SCALE);
-      const shade = 1.15 * (1 - Math.min(0.45, (lift - floor) * 0.13)) * (1 - g.lie);
+      // under water there's no shadow to cast, only the swimmer's own ripple
+      const dry = f.kind === "player" ? +!self.wet : f.kind === "visitor" ? +!swimming(f.n) : 1;
+      const shade = 1.15 * (1 - Math.min(0.45, (lift - floor) * 0.13)) * (1 - g.lie) * dry;
       local.compose(v.set(0, 0.02, 0), q.identity(), s.set(shade, 1, shade));
       blob.setMatrixAt(i, local.premultiply(base));
       if (f.kind === "player" && halo.current) {
         halo.current.visible = ctl.intro === "ground";
-        frameAt(f.n, f.heading, halo.current.matrix, 0.04);
+        frameAt(f.n, f.heading, halo.current.matrix, (depthAt(f.n) > 0 ? Math.max(self.ground, SEA_LEVEL) : self.ground) + 0.04);
       }
     }
 
@@ -500,7 +540,7 @@ export function Crowd({ near, onOpen }: CrowdProps) {
       m.visible = t < 1;
       if (m.visible) {
         const e = 1 - (1 - t) ** 3;
-        frameAt(puffAt.n, puffAt.heading, m.matrix, 0.03, 0.5 + 1.6 * e);
+        frameAt(puffAt.n, puffAt.heading, m.matrix, puffAt.lift + 0.03, 0.5 + 1.6 * e);
         puffMat.opacity = 0.9 * (1 - t);
       }
     }

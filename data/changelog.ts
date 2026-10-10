@@ -8,6 +8,16 @@ export interface Release {
 /** newest first */
 export const CHANGELOG: Release[] = [
   {
+    version: "1.7.0",
+    date: "2026-10-11",
+    title: "Jump and swim",
+    notes: [
+      "Press Space to jump. On a phone, tap the Jump button.",
+      "Walk into the sea to swim. You splash in and paddle around.",
+      "Other visitors see you swimming too.",
+    ],
+  },
+  {
     version: "1.6.0",
     date: "2026-10-11",
     title: "A tiny Earth",

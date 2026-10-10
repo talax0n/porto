@@ -256,7 +256,7 @@ export function ClickToMove({ onTravel }: { onTravel: (id: StationId) => void })
       if (ground < Infinity) {
         setTarget(hit, null);
         // the walker still goes as near as it can, but the marker says the spot itself is taken
-        const taken = blocked(hit.normalize(), RADIUS);
+        const taken = blocked(hit.normalize(), RADIUS, true);
         setPing(hit, taken ? "deny" : "move", taken ? DENY : MOVE);
       }
     };

@@ -68,10 +68,11 @@ export function Dock({ visited, current, onTravel }: DockProps) {
 
 const HINTS: [string, string][] = [
   ["WASD", "walk"],
+  ["Space", "jump"],
   ["Click", "go"],
   ["Drag", "look"],
   ["E", "open"],
-  ["1–8", "jump"],
+  ["1–8", "travel"],
   ["M", "map"],
   ["Esc", "close"],
 ];

@@ -72,3 +72,20 @@ export function Stick() {
     </motion.div>
   );
 }
+
+/** The touch stand-in for Space. In water the player swims, so a tap there does nothing. */
+export function JumpButton() {
+  return (
+    <button
+      type="button"
+      aria-label="Jump"
+      onPointerDown={(e) => {
+        e.preventDefault();
+        ctl.jump = true;
+      }}
+      className="grid size-16 touch-none place-items-center rounded-full border border-hq-line bg-white/80 text-[12px] font-semibold text-hq-ink shadow-[0_10px_30px_-16px_rgba(0,0,0,0.3)] backdrop-blur select-none active:scale-95 active:border-hq-accent"
+    >
+      Jump
+    </button>
+  );
+}

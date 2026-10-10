@@ -148,7 +148,7 @@ const off = new Vector3();
 function drop(f: Villager, door: Vector3, alt: number) {
   f.n.copy(door);
   walk(f.n, flatten(scatter(Math.random, off), f.n), 0.6 + Math.random() * 0.8);
-  resolve(f.n, RADIUS, null);
+  resolve(f.n, RADIUS, null, false);
   toward(f.n, door, f.heading);
   f.goal = f.skip = f.pin = null;
   f.lift = f.speed = f.vy = 0;
