@@ -10,6 +10,7 @@ import { Agents } from "./agents";
 import { Confetti } from "./confetti";
 import { Crowd } from "./crowd";
 import { Daylight } from "./daylight";
+import { Earth } from "./earth";
 import { Globe } from "./globe";
 import { GithubGrid } from "./github-grid";
 import { IntroBubble } from "./intro";
@@ -47,6 +48,7 @@ export default function Scene({ state, target, room, onTravel, onOpen, onNext, o
     >
       <PerformanceMonitor onChange={({ factor }) => setDpr(1 + 0.5 * factor)} />
       <Daylight />
+      <Earth />
       <World near={near} inspecting={inspecting} visited={state.visited} />
       <Lamps />
       <Screens />

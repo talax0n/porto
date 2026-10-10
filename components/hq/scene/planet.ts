@@ -1,4 +1,4 @@
-import { Matrix4, Quaternion, Vector3 } from "three";
+import { Matrix4, Quaternion, Vector3, Vector4 } from "three";
 import { STATIONS, type StationId } from "@/data/stations";
 import { PLINTH_HEIGHT, PLINTH_SIZE } from "./dioramas";
 
@@ -113,8 +113,76 @@ export interface Obstacle {
   r: number;
 }
 
+/** Seas as discs: centre (polar, azimuth) and radius, in degrees. The southern ocean sends bays up between the stations. */
+export const SEAS = (
+  [
+    [[180, 0], 74],
+    [[86, 132], 17],
+    [[84, 298], 17],
+    [[88, 22], 15],
+    [[90, 200], 15],
+  ] as const
+).map(([at, r]) => ({ n: dirAt(at[0], at[1]), r: r * DEG * R }));
+
+/** How far coastlines wander either side of a sea's rim. */
+export const WOBBLE = 1.5;
+/** Blend width where seas meet, so bays flow into the ocean without a crease. */
+export const SEA_BLEND = 1.2;
+/** Water surface, below the meadow. */
+export const SEA_LEVEL = -0.15;
+export const SEA_DEPTH = 1.1;
+
+const smax = (a: number, b: number, s: number) => {
+  const h = Math.max(s - Math.abs(a - b), 0) / s;
+  return Math.max(a, b) + h * h * s * 0.25;
+};
+/** Coastline wander as a sum of sines: amplitude, then frequency along x, y, z, then phase. `COAST_GLSL` reads the same table. */
+const WAVES = [
+  [0.42, 1.9, 2.6, -1.3, 0.7],
+  [0.28, -3.1, 1.7, 3.4, 2.1],
+  [0.18, 6.1, -2.9, 4.2, 0.4],
+  [0.12, 9.7, 7.3, -6.2, 2.3],
+] as const;
+const wobble = (n: Vector3) => WOBBLE * WAVES.reduce((w, [a, x, y, z, p]) => w + a * Math.sin(x * n.x + y * n.y + z * n.z + p), 0);
+
+/** Signed distance past the nearest shoreline at unit position n: positive at sea, negative inland. `COAST_GLSL` mirrors it. */
+export function coast(n: Vector3): number {
+  const w = wobble(n);
+  let k = -1e3;
+  for (const s of SEAS) k = smax(k, s.r + w - Math.acos(Math.min(1, Math.max(-1, n.dot(s.n)))) * R, SEA_BLEND);
+  return k;
+}
+
+const ramp = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+/** Ground height off the sphere at a given `coast` value: a sandy shelf, then the seabed. */
+export const seabed = (k: number) => -0.08 * ramp(-0.7, 0, k) - SEA_DEPTH * ramp(0, 2.6, k);
+
+/** `coast` and `seabed` for shaders; feed `uSeas` from `seaUniform()`. */
+export const COAST_GLSL = /* glsl */ `
+uniform vec4 uSeas[${SEAS.length}];
+float smax(float a, float b, float s) {
+  float h = max(s - abs(a - b), 0.0) / s;
+  return max(a, b) + h * h * s * 0.25;
+}
+float coast(vec3 n) {
+  float w = ${WOBBLE.toFixed(4)} * (${WAVES.map(([a, x, y, z, p]) => `${a.toFixed(3)} * sin(dot(n, vec3(${x.toFixed(3)}, ${y.toFixed(3)}, ${z.toFixed(3)})) + ${p.toFixed(3)})`).join(" + ")});
+  float k = -1e3;
+  for (int i = 0; i < ${SEAS.length}; i++) k = smax(k, uSeas[i].w + w - acos(clamp(dot(n, uSeas[i].xyz), -1.0, 1.0)) * ${R.toFixed(1)}, ${SEA_BLEND.toFixed(4)});
+  return k;
+}
+float seabed(float k) { return -0.08 * smoothstep(-0.7, 0.0, k) - ${SEA_DEPTH.toFixed(4)} * smoothstep(0.0, 2.6, k); }
+`;
+export const seaUniform = () => ({ value: SEAS.map(({ n, r }) => new Vector4(n.x, n.y, n.z, r)) });
+
 /** Mutable: props.ts appends trees and lamps once their scatter is generated. */
-export const OBSTACLES: Obstacle[] = STATIONS.map((s) => ({ n: LANDMARKS[s.id].n, r: LANDMARKS[s.id].footprint }));
+export const OBSTACLES: Obstacle[] = [
+  ...STATIONS.map((s) => ({ n: LANDMARKS[s.id].n, r: LANDMARKS[s.id].footprint })),
+  // a disc can't follow the coast, so where a lobe reaches furthest out a walker wades in ankle-deep
+  ...SEAS.map(({ n, r }) => ({ n, r: r + WOBBLE * 0.35 })),
+];
 
 const LIST = STATIONS.map((s) => LANDMARKS[s.id]);
 const local = new Vector3();
