@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { Span } from "@/data/github";
 
 export interface Day {
   date: string;
@@ -8,7 +9,12 @@ export interface Day {
 
 export interface Calendar {
   username: string;
+  since: string;
   total: number;
+  allTime: number;
+  streak: { current: Span | null; longest: Span | null };
+  activity: { commits: number; pullRequests: number; issues: number; reviews: number };
+  repos: { count: number; top: string[] };
   weeks: Day[][];
 }
 

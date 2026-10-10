@@ -8,6 +8,17 @@ export interface Release {
 /** newest first */
 export const CHANGELOG: Release[] = [
   {
+    version: "1.5.0",
+    date: "2026-10-10",
+    title: "A greener GitHub panel",
+    notes: [
+      "The contribution graph is green now, like on GitHub.",
+      "You can see my all-time contributions, my current streak, and my longest streak.",
+      "A breakdown shows how my year splits across commits, pull requests, reviews, and issues.",
+      "The panel lists a few repositories I worked on this year.",
+    ],
+  },
+  {
     version: "1.4.0",
     date: "2026-10-10",
     title: "Names and a better chat",
