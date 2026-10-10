@@ -11,7 +11,7 @@ import {
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { STATIONS } from "@/data/stations";
-import { PAL, TONE, ball, box, cone, cyl, merge, paint, part, ring, type Part } from "./clay";
+import { PAL, TONE, ball, box, cone, cyl, dub, merge, paint, part, ring, type Part } from "./clay";
 import { PLINTH_SIZE } from "./dioramas";
 import { LANDMARKS, LANDMARK_SCALE, NORTH_POLE, OBSTACLES, R, arc, dirAt, frameAt, toward, walk } from "./planet";
 
@@ -111,9 +111,8 @@ function ribbon(a: Vector3, b: Vector3): BufferGeometry {
   const g = new BufferGeometry();
   g.setAttribute("position", new Float32BufferAttribute(pos, 3));
   g.setAttribute("normal", new Float32BufferAttribute(nor, 3));
-  g.setAttribute("uv", new Float32BufferAttribute(new Float32Array((pos.length / 3) * 2), 2));
   g.setIndex(idx);
-  return paint(g.toNonIndexed(), PAL.sand);
+  return paint(g.toNonIndexed(), PAL.sand, "sand");
 }
 
 /** Lays flat geometry onto the surface at n, bending every vertex down onto the sphere. */
@@ -247,7 +246,7 @@ function meadow(g: BufferGeometry): BufferGeometry {
     c.lerpColors(a, b, Math.min(1, Math.max(0, t * 1.6 + 0.35))).toArray(out, i * 3);
   }
   g.setAttribute("color", new Float32BufferAttribute(out, 3));
-  return g;
+  return dub(g.deleteAttribute("uv"), "grass");
 }
 
 /** The planet, paths, plaza, trees, lamps and benches baked into one clay geometry. */
@@ -256,7 +255,7 @@ export function buildGround(): BufferGeometry {
   const disc = new RingGeometry(0, PLAZA, 40, 6).rotateX(-Math.PI / 2);
   const parts = [
     meadow(new IcosahedronGeometry(R, 18)),
-    paint(drape(disc, NORTH_POLE, new Vector3(0, 0, 1), PATH_LIFT + 0.005).toNonIndexed(), PAL.cobble),
+    paint(drape(disc, NORTH_POLE, new Vector3(0, 0, 1), PATH_LIFT + 0.005).toNonIndexed().deleteAttribute("uv"), PAL.cobble, "stone"),
     placed(plaza(), NORTH_POLE, new Vector3(0, 0, 1)),
     ...PATHS.map(([a, b]) => ribbon(a, b)),
     ...PROPS.map(({ parts, n, fwd }) => placed(parts, n, fwd)),

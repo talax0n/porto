@@ -1,18 +1,23 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { DirectionalLight, type HemisphereLight } from "three";
+import { R } from "./planet";
 import { newLook, skyNow } from "./sky";
+import { SURFACE_UNIFORMS } from "./surface";
 
 /** The key light is parked by `CameraRig` so it rides with the camera; this only sets its colour. */
 export const keyLight = new DirectionalLight("#fff3e2", 2.1);
 const look = newLook();
+SURFACE_UNIFORMS.uR.value = R;
 
 /** Lights the planet for the hour in Jakarta. */
 export function Daylight() {
   const hemi = useRef<HemisphereLight>(null);
 
-  useFrame(() => {
+  useFrame(({ clock }) => {
     skyNow(look);
+    SURFACE_UNIFORMS.uTime.value = clock.elapsedTime;
+    SURFACE_UNIFORMS.uNight.value = 1 - look.day;
     const h = hemi.current;
     if (h) {
       h.color.setHex(look.hemiSky);

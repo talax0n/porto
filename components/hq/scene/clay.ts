@@ -5,16 +5,19 @@ import {
   ConeGeometry,
   CylinderGeometry,
   Euler,
+  ExtrudeGeometry,
   Float32BufferAttribute,
   Matrix4,
   MeshStandardMaterial,
   Quaternion,
+  Shape,
   SphereGeometry,
   TorusGeometry,
   Vector3,
 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { SURF, type Surf, dress } from "./surface";
 
 export const ACCENT = "#2b3cff";
 
@@ -43,13 +46,15 @@ export const PAL = {
   flower: ["#f6a6b8", "#ffffff", "#f7d26e", "#b9a3e6", "#f29a83"],
 } as const;
 
-/** The one clay material. Per-part tone lives in vertex colours so every static mesh can share it. */
-export const CLAY = new MeshStandardMaterial({
-  color: "#ffffff",
-  vertexColors: true,
-  roughness: 0.85,
-  metalness: 0,
-});
+/** The one clay material. Per-part tone and surface live in vertex attributes so every static mesh can share it. */
+export const CLAY = dress(
+  new MeshStandardMaterial({
+    color: "#ffffff",
+    vertexColors: true,
+    roughness: 0.85,
+    metalness: 0,
+  }),
+);
 
 export type Vec3 = [number, number, number];
 
@@ -57,6 +62,7 @@ export interface PartOpts {
   rot?: Vec3;
   scale?: Vec3;
   tone?: string;
+  surf?: Surf;
 }
 
 export interface Part {
@@ -65,12 +71,18 @@ export interface Part {
   opts: PartOpts;
 }
 
-export function paint(geo: BufferGeometry, tone: string): BufferGeometry {
+export function paint(geo: BufferGeometry, tone: string, surf: Surf = "clay"): BufferGeometry {
   const c = new Color(tone);
   const n = geo.getAttribute("position").count;
   const arr = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) c.toArray(arr, i * 3);
   geo.setAttribute("color", new Float32BufferAttribute(arr, 3));
+  return dub(geo, surf);
+}
+
+/** Tags every vertex with what it's made of; see surface.ts. */
+export function dub(geo: BufferGeometry, surf: Surf): BufferGeometry {
+  geo.setAttribute("surf", new Float32BufferAttribute(new Float32Array(geo.getAttribute("position").count).fill(SURF[surf]), 1));
   return geo;
 }
 
@@ -93,7 +105,22 @@ export const ring = (r: number, tube: number, rad = 8, seg = 18) =>
 export const pill = (r: number, len: number, cap = 4, rad = 10) =>
   shared(`p${r},${len},${cap},${rad}`, () => new CapsuleGeometry(r, len, cap, rad));
 
+/** A gable roof: a triangular prism `w` wide across x, `h` tall, its ridge running `d` along z, base at y 0. */
+export const gable = (w: number, h: number, d: number) =>
+  shared(`g${w},${h},${d}`, () => {
+    const s = new Shape().moveTo(-w / 2, 0).lineTo(w / 2, 0).lineTo(0, h).closePath();
+    const bevel = Math.min(0.03, h / 8);
+    return new ExtrudeGeometry(s, { depth: d - bevel * 2, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 2 })
+      .translate(0, 0, -d / 2 + bevel);
+  });
+
 export const part = (geo: BufferGeometry, pos: Vec3, opts: PartOpts = {}): Part => ({ geo, pos, opts });
+
+/** Only position, normal, colour and surface survive a merge, so every source geometry lines up. */
+function strip(g: BufferGeometry) {
+  for (const k of Object.keys(g.attributes)) if (k !== "position" && k !== "normal") g.deleteAttribute(k);
+  return g;
+}
 
 const m = new Matrix4();
 const q = new Quaternion();
@@ -104,7 +131,7 @@ export function merge(parts: Part[], at: Vec3 = [0, 0, 0]): BufferGeometry {
   const baked = parts.map(({ geo, pos, opts }) => {
     q.setFromEuler(new Euler(...(opts.rot ?? [0, 0, 0])));
     m.compose(new Vector3(pos[0] + at[0], pos[1] + at[1], pos[2] + at[2]), q, opts.scale ? new Vector3(...opts.scale) : one);
-    return paint(geo.index ? geo.toNonIndexed() : geo.clone(), opts.tone ?? TONE.white).applyMatrix4(m);
+    return paint(strip(geo.index ? geo.toNonIndexed() : geo.clone()), opts.tone ?? TONE.white, opts.surf).applyMatrix4(m);
   });
   const out = mergeGeometries(baked, false);
   baked.forEach((g) => g.dispose());
