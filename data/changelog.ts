@@ -8,6 +8,19 @@ export interface Release {
 /** newest first */
 export const CHANGELOG: Release[] = [
   {
+    version: "1.6.0",
+    date: "2026-10-11",
+    title: "A tiny Earth",
+    notes: [
+      "The planet now has an ocean, sandy beaches, lakes and foamy waves.",
+      "A soft blue sky glows around the globe, and clouds drift past.",
+      "The grass, paths and plaza have real texture now.",
+      "Pines, palms, bushes and rocks grow across the land.",
+      "Every station is rebuilt with tiled roofs, brick and plaster walls, wood floors and little details.",
+      "Windows and lanterns glow warm at night.",
+    ],
+  },
+  {
     version: "1.5.0",
     date: "2026-10-10",
     title: "A greener GitHub panel",

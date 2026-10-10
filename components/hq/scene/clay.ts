@@ -1,4 +1,5 @@
 import {
+  BoxGeometry,
   BufferGeometry,
   CapsuleGeometry,
   Color,
@@ -104,6 +105,14 @@ export const ring = (r: number, tube: number, rad = 8, seg = 18) =>
   shared(`t${r},${tube},${rad},${seg}`, () => new TorusGeometry(r, tube, rad, seg));
 export const pill = (r: number, len: number, cap = 4, rad = 10) =>
   shared(`p${r},${len},${cap},${rad}`, () => new CapsuleGeometry(r, len, cap, rad));
+
+/** Square-edged box for trim too small for rounded corners to show: 12 triangles against a rounded box's 300. */
+export const slab = (w: number, h: number, d: number) => shared(`x${w},${h},${d}`, () => new BoxGeometry(w, h, d));
+/** A four-sided pyramid with a `w` square base at y -h/2, edges along the axes. */
+export const pyramid = (w: number, h: number) =>
+  shared(`y${w},${h}`, () => new ConeGeometry(w * Math.SQRT1_2, h, 4).rotateY(Math.PI / 4));
+/** A cylinder with few sides, for rods, rails and stems. */
+export const rod = (r: number, h: number, sides = 6) => shared(`r${r},${h},${sides}`, () => new CylinderGeometry(r, r, h, sides));
 
 /** A gable roof: a triangular prism `w` wide across x, `h` tall, its ridge running `d` along z, base at y 0. */
 export const gable = (w: number, h: number, d: number) =>
