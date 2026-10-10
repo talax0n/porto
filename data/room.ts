@@ -29,7 +29,9 @@ export type ClientMsg =
   | { t: "say"; text: string }
   | { t: "emote"; e: Emote }
   | { t: "preset"; p: number }
-  | { t: "name"; name: string };
+  | { t: "name"; name: string }
+  /** the site owner proving who they are with the key only they hold */
+  | { t: "claim"; key: string };
 
 export type ServerMsg =
   | { t: "hello"; you: PeerId; peers: Peer[] }
@@ -39,9 +41,13 @@ export type ServerMsg =
   | { t: "say"; id: PeerId; text: string }
   | { t: "emote"; id: PeerId; e: Emote }
   | { t: "name"; id: PeerId; name: string }
+  /** this person is the site owner; only sent after the server checked their key */
+  | { t: "crown"; id: PeerId }
   | { t: "full" };
 
 const ID = /^[0-9a-z]{6}$/;
+/** what an owner key may look like; the real one lives only in the worker's `OWNER_KEY` secret */
+export const OWNER_KEY = /^[\w-]{16,128}$/;
 const FRAME_MAX = 4096;
 
 // a handful of slurs and profanity; a speed bump, not moderation
@@ -148,6 +154,8 @@ export function parseClient(text: unknown): ClientMsg | null {
       const name = exactly(x, ["t", "name"]) ? cleanName(x.name) : null;
       return name ? { t: "name", name } : null;
     }
+    case "claim":
+      return exactly(x, ["t", "key"]) && typeof x.key === "string" && OWNER_KEY.test(x.key) ? { t: "claim", key: x.key } : null;
     default:
       return null;
   }
@@ -188,6 +196,8 @@ export function parseServer(text: unknown): ServerMsg | null {
       const name = cleanName(x.name);
       return name && name === x.name ? { t: "name", id: x.id, name } : null;
     }
+    case "crown":
+      return exactly(x, ["t", "id"]) && isId(x.id) ? { t: "crown", id: x.id } : null;
     case "full":
       return exactly(x, ["t"]) ? { t: "full" } : null;
     default:

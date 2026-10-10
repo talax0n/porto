@@ -144,6 +144,8 @@ export interface Controls {
   alt: number;
   /** distance walked since the last 10Hz poll, drained into today's steps */
   walked: number;
+  /** the room confirmed you are the site owner, so you wear the crown */
+  king: boolean;
   /** filled by the crowd once it spawns, so the map can chart villagers without importing the scene */
   villagers: readonly Villager[];
   /** the room's other people, a fixed pool the crowd fills in once it spawns and `use-room` seats peers in */
@@ -182,6 +184,7 @@ export const ctl: Controls = {
   gesture: { current: "rest", t: 0, blend: 1, side: 1 },
   alt: DROP_IN,
   walked: 0,
+  king: false,
   villagers: [],
   visitors: [],
   pulse: { agents: [], lastSeen: 0, runsToday: 0 },

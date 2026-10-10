@@ -16,6 +16,7 @@ export const CHANGELOG: Release[] = [
       "You get a friendly random name the first time you visit, and you can change it from the chat.",
       "The chat is now a proper card with names, a short history, and a send button.",
       "With the chat closed, new messages show as a small preview that fades away.",
+      "When I'm on the planet, I wear a gold crown and a King badge, so you know it's really me.",
     ],
   },
   {
