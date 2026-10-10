@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type Emote, PRESETS, ROOMS_TRIED, type PeerId, type ServerMsg, type Vec, cleanName, nameFor, parseServer } from "@/data/room";
+import { type Emote, OWNER_KEY, PRESETS, ROOMS_TRIED, type PeerId, type ServerMsg, type Vec, cleanName, nameFor, parseServer } from "@/data/room";
 import { ctl, setGesture } from "./game";
 import { type Visitor, lookOf } from "./scene/folk";
 
@@ -14,6 +14,7 @@ const BACKOFF = [1_000, 2_000, 5_000, 15_000, 30_000];
 /** how many lines the log remembers; a bubble above the speaker's head lasts much less, see `speech.tsx` */
 const SCROLLBACK = 30;
 const NAME_KEY = "hq:name";
+const OWNER = "hq:owner";
 const EMOTE_FOR = 2_500;
 
 export interface Line {
@@ -24,6 +25,8 @@ export interface Line {
   name: string;
   color: string | null;
   mine: boolean;
+  /** said by the site owner, as the room confirmed */
+  king: boolean;
   /** performance.now() when it arrived */
   at: number;
 }
@@ -41,6 +44,23 @@ function savedName(): string {
   }
 }
 
+/** The owner key: visiting with `?owner=<key>` saves it on this device and takes it out of the address bar. */
+function ownerKey(): string | null {
+  try {
+    const url = new globalThis.URL(location.href);
+    const given = url.searchParams.get("owner");
+    if (given !== null) {
+      url.searchParams.delete("owner");
+      history.replaceState(history.state, "", url);
+      if (OWNER_KEY.test(given)) localStorage.setItem(OWNER, given);
+      else localStorage.removeItem(OWNER);
+    }
+    return localStorage.getItem(OWNER);
+  } catch {
+    return null;
+  }
+}
+
 export interface Room {
   /** people in the room including you, or null while not connected */
   online: number | null;
@@ -48,6 +68,8 @@ export interface Room {
   lines: readonly Line[];
   /** what everyone in the room is called, you included; the name the server echoed, or one made from their look */
   names: Readonly<Record<PeerId, string>>;
+  /** who the server crowned as the site owner, you included */
+  kings: ReadonlySet<PeerId>;
   /** your own name; changes once the server confirms a rename */
   myName: string | null;
   rename: (name: string) => void;
@@ -62,6 +84,7 @@ const OFF: Room = {
   me: null,
   lines: [],
   names: {},
+  kings: new Set(),
   myName: null,
   rename: () => {},
   say: () => {},
@@ -83,6 +106,7 @@ export function useRoom(active: boolean): Room {
   const [lines, setLines] = useState<readonly Line[]>([]);
   const [names, setNames] = useState<Readonly<Record<PeerId, string>>>({});
   const [myName, setMyName] = useState<string | null>(null);
+  const [kings, setKings] = useState<ReadonlySet<PeerId>>(OFF.kings);
   const muted = useRef(new Set<PeerId>());
   const sock = useRef<WebSocket | null>(null);
   const ready = useRef(false);
@@ -103,6 +127,7 @@ export function useRoom(active: boolean): Room {
     const given = new Map<PeerId, string>();
     let self: PeerId | null = null;
     let mine = savedName();
+    const claim = ownerKey();
     const labelOf = (pid: PeerId) => (pid === self ? mine : (given.get(pid) ?? nameFor(seats.get(pid)?.look ?? 0)));
     const publish = () => {
       const all: Record<PeerId, string> = {};
@@ -133,12 +158,16 @@ export function useRoom(active: boolean): Room {
       v.shown = v.fresh = false;
       seats.delete(pid);
       given.delete(pid);
+      v.king = false;
+      setKings((ks) => (ks.has(pid) ? new Set([...ks].filter((k) => k !== pid)) : ks));
       publish();
     };
     const clear = () => {
       for (const pid of [...seats.keys()]) unseat(pid);
       ready.current = false;
       self = null;
+      ctl.king = false;
+      setKings(OFF.kings);
       setNames({});
       setMe(null);
       setOnline(null);
@@ -155,6 +184,7 @@ export function useRoom(active: boolean): Room {
         name: labelOf(pid),
         color: v ? lookOf(v.look).shirt.getStyle() : null,
         mine: pid === self,
+        king: !!v?.king || (pid === self && ctl.king),
         at: performance.now(),
       };
       setLines((ls) => [...ls.slice(1 - SCROLLBACK), line]);
@@ -171,6 +201,7 @@ export function useRoom(active: boolean): Room {
           for (const p of m.peers) seat(p);
           // an old worker ignores this and never echoes, so you keep the name you came with
           ws?.send(JSON.stringify({ t: "name", name: mine }));
+          if (claim) ws?.send(JSON.stringify({ t: "claim", key: claim }));
           count();
           // announce where we stand, so the others see us the moment we arrive
           sent.at = -Infinity;
@@ -209,6 +240,13 @@ export function useRoom(active: boolean): Room {
           } else given.set(m.id, m.name);
           publish();
           break;
+        case "crown": {
+          if (m.id === self) ctl.king = true;
+          const v = seats.get(m.id);
+          if (v) v.king = v.fresh = true;
+          setKings((ks) => new Set(ks).add(m.id));
+          break;
+        }
         case "full":
           // the server closes right after; onclose then tries the next room
           room++;
@@ -314,6 +352,6 @@ export function useRoom(active: boolean): Room {
   }, []);
 
   return URL && active
-    ? { online, me, lines, names, myName, rename, say, preset, emote, mute }
+    ? { online, me, lines, names, kings, myName, rename, say, preset, emote, mute }
     : OFF;
 }

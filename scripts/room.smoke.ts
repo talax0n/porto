@@ -1,10 +1,13 @@
-// Drives a running `npm run realtime:dev` with raw sockets: node scripts/room.smoke.ts [ws://127.0.0.1:8787]
+// Drives a running `npm run realtime:dev -- --var OWNER_KEY:<key>` with raw sockets:
+// OWNER_KEY=<key> node scripts/room.smoke.ts [ws://127.0.0.1:8787]
 import assert from "node:assert/strict";
 import { ROOM_CAP } from "../data/room.ts";
 
 const base = process.argv[2] ?? "ws://127.0.0.1:8787";
 const room = `room-${Math.floor(Math.random() * 10)}`;
 const origin = "http://localhost:3000";
+const ownerKey = process.env.OWNER_KEY;
+assert.ok(ownerKey, "OWNER_KEY must match the worker's");
 type Frame = Record<string, unknown>;
 
 function open(headers: Record<string, string> = { Origin: origin }) {
@@ -77,6 +80,27 @@ await late.next("hello");
 const lateName = await late.next("name");
 assert.deepEqual([lateName.id, lateName.name], [helloB.you, "Bee Two"], "a late joiner is told the current names");
 late.ws.close();
+
+send(b.ws, { t: "claim", key: "x".repeat(32) });
+assert.equal(await a.next("crown", 600).catch(() => null), null, "a wrong key crowns nobody");
+send(b.ws, { t: "claim", key: ownerKey });
+assert.equal(await b.next("crown", 600).catch(() => null), null, "one guess per socket, even with the right key");
+const king = open();
+await king.ready;
+const helloKing = await king.next("hello");
+send(king.ws, { t: "claim", key: ownerKey });
+assert.equal((await king.next("crown")).id, helloKing.you, "the owner sees their own crown");
+assert.equal(await a.next("crown", 600).catch(() => null), null, "nobody else hears of the owner before they appear");
+send(king.ws, { t: "move", n, h });
+await a.next("join");
+assert.equal((await a.next("crown")).id, helloKing.you, "the owner is crowned for the room once they appear");
+const witness = open();
+await witness.ready;
+await witness.next("hello");
+assert.equal((await witness.next("crown")).id, helloKing.you, "a late joiner is told who the owner is");
+witness.ws.close();
+king.ws.close();
+await a.next("leave");
 
 b.ws.close();
 assert.equal((await a.next("leave")).id, helloB.you);

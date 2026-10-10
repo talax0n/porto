@@ -66,6 +66,15 @@ assert.deepEqual(parseClient(enc({ t: "name", name: "  Mossy   Otter " })), { t:
 assert.equal(parseClient(enc({ t: "name", name: "a".repeat(17) })), null, "name too long");
 assert.equal(parseClient(enc({ t: "name", name: "shit" })), null, "blocked name");
 assert.equal(parseClient(enc({ t: "name", name: "" })), null, "empty name");
+const key = "k".repeat(16);
+assert.deepEqual(parseClient(enc({ t: "claim", key })), { t: "claim", key });
+assert.equal(parseClient(enc({ t: "claim", key: "k".repeat(15) })), null, "owner key too short");
+assert.equal(parseClient(enc({ t: "claim", key: "k".repeat(129) })), null, "owner key too long");
+assert.equal(parseClient(enc({ t: "claim", key: `${key}!` })), null, "owner key outside its alphabet");
+assert.equal(parseClient(enc({ t: "claim", key, extra: 1 })), null, "claim with an extra key");
+assert.deepEqual(parseServer(enc({ t: "crown", id: "a1b2c3" })), { t: "crown", id: "a1b2c3" });
+assert.equal(parseServer(enc({ t: "crown", id: "nope" })), null, "crown for a bad id");
+assert.equal(parseServer(enc({ t: "crown", id: "a1b2c3", name: "King" })), null, "crown with an extra key");
 assert.equal(parseClient(enc({ t: "name", name: "Bob", id: "a1b2c3" })), null, "cannot rename another id");
 assert.equal(parseClient(enc({ t: "name" })), null, "missing name");
 assert.equal(parseClient("not json"), null);

@@ -20,6 +20,7 @@ import {
   HATS,
   HEAD_Y,
   HOP,
+  KING,
   PARTS,
   RADIUS,
   PLAIN,
@@ -27,7 +28,6 @@ import {
   type Folk,
   type Hat,
   type Villager,
-  type Visitor,
   VISITORS,
   animate,
   lookOf,
@@ -51,6 +51,9 @@ ctl.visitors = folk.filter((f) => f.kind === "visitor");
 const hatSlots = Object.fromEntries(HATS.map((h) => [h, folk.filter((f) => f.hat === h)])) as Record<Hat, Folk[]>;
 /** a visitor's hat can be any kind, so each hat mesh keeps one spare instance per visitor slot after the fixed ones */
 const hatBase = Object.fromEntries(HATS.map((h) => [h, hatSlots[h].length])) as Record<Hat, number>;
+/** the crown keeps one more instance after the visitors' for the player, who wears it once the room crowns them */
+const MY_CROWN = hatBase.crown + VISITORS;
+const plain = { shirt: folk[0].shirt.clone(), foot: folk[0].foot.clone() };
 
 const blobMat = new MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false });
 const haloMat = new MeshBasicMaterial({ color: ACCENT });
@@ -108,7 +111,7 @@ const rotXZ = (x: number, z: number) => q.setFromEuler(eul.set(x, 0, z));
 // arms pitch before they raise, so a positive pitch always swings the hand forward, hanging or overhead
 const armEul = new Euler(0, 0, 0, "ZYX");
 const headM = new Matrix4();
-const slot: Record<Hat, number> = { beanie: 0, cap: 0, ears: 0 };
+const slot: Record<Hat, number> = { beanie: 0, cap: 0, ears: 0, crown: 0 };
 const NONE = new Matrix4().makeScale(0, 0, 0);
 
 /** Writes the walk direction to `input` and returns its strength: keys are all or nothing, the stick is analog. */
@@ -301,6 +304,7 @@ interface Meshes {
   beanie: InstancedMesh | null;
   cap: InstancedMesh | null;
   ears: InstancedMesh | null;
+  crown: InstancedMesh | null;
 }
 
 interface CrowdProps {
@@ -318,6 +322,7 @@ const meshes: Meshes = {
   beanie: null,
   cap: null,
   ears: null,
+  crown: null,
 };
 /** Stable ref callbacks, so React doesn't detach and reattach each mesh on every render. */
 const bind = Object.fromEntries(
@@ -335,11 +340,11 @@ const LAYERS: [keyof Meshes, BufferGeometry, Material, number][] = [
   ["body", PARTS.body, CLAY, N],
   ["nub", PARTS.nub, CLAY, N * 4],
   ["blob", PARTS.blob, blobMat, N],
-  ...HATS.map((h): [Hat, BufferGeometry, Material, number] => [h, PARTS[h], CLAY, hatBase[h] + VISITORS]),
+  ...HATS.map((h): [Hat, BufferGeometry, Material, number] => [h, PARTS[h], CLAY, hatBase[h] + VISITORS + (h === "crown" ? 1 : 0)]),
 ];
 
-/** Dresses a visitor's instances from their look; run when they arrive, since colours are otherwise set once. */
-function dress(i: number, f: Visitor) {
+/** Dresses a visitor's or the player's instances; run when their look changes, since colours are otherwise set once. */
+function dress(i: number, f: Folk, hatAt: number) {
   const { head, body, nub } = meshes;
   head?.setColorAt(i, f.skin);
   body?.setColorAt(i, f.shirt);
@@ -348,7 +353,7 @@ function dress(i: number, f: Visitor) {
   nub?.setColorAt(i * 4 + 2, f.skin);
   nub?.setColorAt(i * 4 + 3, f.skin);
   const hat = f.hat && meshes[f.hat];
-  if (f.hat && hat) hat.setColorAt(hatBase[f.hat] + f.slot, f.hatColor);
+  if (hat) hat.setColorAt(hatAt, f.hatColor);
   for (const mesh of [head, body, nub, hat]) if (mesh?.instanceColor) mesh.instanceColor.needsUpdate = true;
 }
 
@@ -356,6 +361,7 @@ export function Crowd({ near, onOpen }: CrowdProps) {
   const halo = useRef<Mesh>(null);
   const puff = useRef<Mesh>(null);
   const stuck = useMemo(() => ({ t: 0 }), []);
+  const crowned = useRef(false);
 
   useEffect(() => {
     const { head, face, body, nub } = meshes;
@@ -374,15 +380,21 @@ export function Crowd({ near, onOpen }: CrowdProps) {
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.1) * TIME_SCALE;
-    const { head, face, body, nub, blob, beanie, cap, ears } = meshes;
-    if (!head || !face || !body || !nub || !blob || !beanie || !cap || !ears) return;
-    slot.beanie = slot.cap = slot.ears = 0;
+    const { head, face, body, nub, blob, beanie, cap, ears, crown } = meshes;
+    if (!head || !face || !body || !nub || !blob || !beanie || !cap || !ears || !crown) return;
+    slot.beanie = slot.cap = slot.ears = slot.crown = 0;
+    if (crowned.current !== ctl.king) {
+      crowned.current = ctl.king;
+      const me = folk[0];
+      Object.assign(me, ctl.king ? { shirt: KING.shirt, foot: KING.foot } : plain);
+      dress(0, { ...me, hat: "crown", hatColor: KING.hatColor }, MY_CROWN);
+    }
 
     for (let i = 0; i < N; i++) {
       const f = folk[i];
       if (f.kind === "visitor" && f.fresh && f.shown) {
-        Object.assign(f, lookOf(f.look));
-        dress(i, f);
+        Object.assign(f, lookOf(f.look), f.king ? KING : {});
+        if (f.hat) dress(i, f, hatBase[f.hat] + f.slot);
       }
       if ((f.kind === "villager" || f.kind === "visitor") && !f.shown) {
         for (const m of [head, face, body, blob]) m.setMatrixAt(i, NONE);
@@ -431,7 +443,11 @@ export function Crowd({ near, onOpen }: CrowdProps) {
       face.setMatrixAt(i, skull);
       body.setMatrixAt(i, torso);
       if (f.kind === "visitor") for (const h of HATS) meshes[h]?.setMatrixAt(hatBase[h] + f.slot, h === f.hat ? skull : NONE);
-      else if (f.hat) meshes[f.hat]?.setMatrixAt(slot[f.hat]++, skull);
+      else if (f.kind === "player") {
+        // the beanie keeps its slot, so the hats after it keep their colours
+        if (f.hat) meshes[f.hat]?.setMatrixAt(slot[f.hat]++, ctl.king ? NONE : skull);
+        crown.setMatrixAt(MY_CROWN, ctl.king ? skull : NONE);
+      } else if (f.hat) meshes[f.hat]?.setMatrixAt(slot[f.hat]++, skull);
 
       for (let k = 0; k < 2; k++) {
         const side = k ? 1 : -1;
@@ -497,6 +513,7 @@ export function Crowd({ near, onOpen }: CrowdProps) {
     beanie.instanceMatrix.needsUpdate = true;
     cap.instanceMatrix.needsUpdate = true;
     ears.instanceMatrix.needsUpdate = true;
+    crown.instanceMatrix.needsUpdate = true;
   });
 
   const keeperHead = near && LANDMARKS[near].keeper.clone().multiplyScalar(R + 1.15);

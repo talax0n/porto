@@ -2,7 +2,7 @@ import { BufferGeometry, Color, Matrix4, PlaneGeometry, SphereGeometry, Vector3 
 import { MAX_AGENTS } from "@/data/pulse";
 import { type Emote, ROOM_CAP } from "@/data/room";
 import { STATIONS, type StationId } from "@/data/stations";
-import { ACCENT, TONE, ball, cyl, merge, paint, part, pill, ring, type Part } from "./clay";
+import { ACCENT, TONE, ball, cone, cyl, merge, paint, part, pill, ring, type Part } from "./clay";
 import { IDENTITY } from "./dioramas";
 import { type Gesture, type Pose, blankPose, chasePose, onceOf, poseOf } from "./gesture";
 import { rng, scatter } from "./props";
@@ -45,6 +45,8 @@ function bake(geo: BufferGeometry, s: [number, number, number], at: [number, num
   return paint(geo.scale(...s).translate(...at), tone);
 }
 
+const GOLD = "#f2c14e";
+
 const flatPlane = () => new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 
 export const PARTS = {
@@ -77,10 +79,25 @@ export const PARTS = {
     part(pill(0.032, 0.14, 2, 6), [-0.125, HEAD_Y + 0.38, 0.045], { rot: [0, 0, 0.22], tone: "#f3c4c4" }),
     part(pill(0.032, 0.14, 2, 6), [0.125, HEAD_Y + 0.38, 0.045], { rot: [0, 0, -0.22], tone: "#f3c4c4" }),
   ]),
+  /** the site owner's; gold and gems are baked in, so it is tinted with `PLAIN` */
+  crown: merge([
+    part(cyl(0.235, 0.215, 0.11), [0, HEAD_Y + 0.24, 0], { tone: GOLD }),
+    ...Array.from({ length: 5 }, (_, k) => {
+      const a = (k / 5) * Math.PI * 2;
+      const at: [number, number, number] = [Math.sin(a) * 0.2, HEAD_Y + 0.35, Math.cos(a) * 0.2];
+      return [
+        part(cone(0.06, 0.14), at, { tone: GOLD }),
+        part(ball(0.032, 7, 5), [at[0], at[1] + 0.08, at[2]], { tone: GOLD }),
+      ];
+    }).flat(),
+    part(ball(0.04, 8, 6), [0, HEAD_Y + 0.24, 0.235], { tone: "#e0475b", scale: [1, 1, 0.6] }),
+    part(ball(0.03, 8, 6), [-0.15, HEAD_Y + 0.24, 0.18], { tone: "#4f8fe0", scale: [1, 1, 0.6] }),
+    part(ball(0.03, 8, 6), [0.15, HEAD_Y + 0.24, 0.18], { tone: "#4f8fe0", scale: [1, 1, 0.6] }),
+  ]),
   blob: flatPlane(),
 } satisfies Record<string, BufferGeometry>;
 
-export const HATS = ["beanie", "cap", "ears"] as const;
+export const HATS = ["beanie", "cap", "ears", "crown"] as const;
 export type Hat = (typeof HATS)[number];
 
 /** Instance tint that leaves a part's baked vertex colours untouched (face dots). */
@@ -159,6 +176,8 @@ export type Folk = Body &
         pose: Pose;
         lift: number;
         shown: boolean;
+        /** the room crowned them as the site owner */
+        king: boolean;
       }
   );
 
@@ -267,6 +286,7 @@ export function makeCrowd(player: { n: Vector3; heading: Vector3 }): Folk[] {
       pose: blankPose(),
       lift: 0,
       shown: false,
+      king: false,
       n,
       heading: new Vector3(0, 0, 1),
       ...rest(),
@@ -290,6 +310,14 @@ export function lookOf(seed: number) {
     foot: pick(SHOES),
   };
 }
+
+/** What the site owner wears over their own skin, so everyone sees the same king. */
+export const KING: Pick<Body, "hat" | "hatColor" | "shirt" | "foot"> = {
+  hat: "crown",
+  hatColor: PLAIN,
+  shirt: new Color("#8e6fd8"),
+  foot: new Color("#5b4a8a"),
+};
 
 export const RADIUS = 0.26;
 export const WALK = 1.1;

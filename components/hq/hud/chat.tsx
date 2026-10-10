@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { MessageCircle, Pencil, SendHorizontal, X } from "lucide-react";
+import { Crown, MessageCircle, Pencil, SendHorizontal, X } from "lucide-react";
 import { EMOTES, type Emote, NAME_MAX, PRESETS, SAY_MAX, cleanName } from "@/data/room";
 import { cn } from "@/lib/utils";
 import { ctl } from "../game";
@@ -15,10 +15,11 @@ const PREVIEW_LINES = 2;
 
 /** pastel shirts are too pale to read as text, so the name takes a darker mix and the dot keeps the true colour */
 function Who({ line }: { line: Line }) {
-  if (line.mine) return <span className="font-semibold text-hq-accent">You</span>;
+  const crown = line.king && <Crown aria-label="King" className="inline size-3 -translate-y-px text-[#d9a21e]" strokeWidth={2.5} />;
+  if (line.mine) return <span className="inline-flex items-baseline gap-1 font-semibold text-hq-accent">{crown}You</span>;
   return (
     <span className="inline-flex items-baseline gap-1 font-semibold" style={{ color: `color-mix(in oklab, ${line.color ?? "#6b6b6b"} 45%, #111111)` }}>
-      <span aria-hidden className="size-2 shrink-0 translate-y-px rounded-full" style={{ background: line.color ?? "#6b6b6b" }} />
+      {crown || <span aria-hidden className="size-2 shrink-0 translate-y-px rounded-full" style={{ background: line.color ?? "#6b6b6b" }} />}
       {line.name}
     </span>
   );

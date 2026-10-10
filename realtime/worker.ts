@@ -5,16 +5,25 @@ interface Env {
   ROOM: DurableObjectNamespace<Room>;
   /** comma separated; a browser's Origin must be one of these */
   ALLOWED_ORIGINS: string;
+  /** a secret set with `wrangler secret put OWNER_KEY`; unset means nobody can be crowned */
+  OWNER_KEY?: string;
 }
 
 /** Survives hibernation on the socket itself. `n` and `h` stay null until the first move, so nobody appears at a default spot. */
-type Seat = { id: PeerId; look: number; n: Vec | null; h: Vec | null; name?: string };
+type Seat = { id: PeerId; look: number; n: Vec | null; h: Vec | null; name?: string; owner?: true; claimed?: true };
 
 /** speech tokens: a burst of 4, one more every 2s; position updates are held to ~16Hz */
 const BURST = 4;
 const REFILL = 2000;
 const MOVE_GAP = 60;
 const RENAME_GAP = 3000;
+
+const sha = async (s: string) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+/** hashing first gives equal lengths, so the comparison takes the same time whatever the guess */
+async function isOwner(key: string, env: Env) {
+  if (!env.OWNER_KEY) return false;
+  return crypto.subtle.timingSafeEqual(await sha(key), await sha(env.OWNER_KEY));
+}
 
 const same = (a: Vec, b: Vec) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 
@@ -77,7 +86,10 @@ export class Room extends DurableObject<Env> {
     const peers = seated.flatMap(({ seat: s }) => (s.n && s.h ? [{ id: s.id, look: s.look, n: s.n, h: s.h }] : []));
     this.send(server, { t: "hello", you: id, peers });
     // names ride their own message: deployed clients reject a peer with an unknown key
-    for (const { seat: s } of seated) if (s.n && s.name) this.send(server, { t: "name", id: s.id, name: s.name });
+    for (const { seat: s } of seated) {
+      if (s.n && s.name) this.send(server, { t: "name", id: s.id, name: s.name });
+      if (s.n && s.owner) this.send(server, { t: "crown", id: s.id });
+    }
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -100,6 +112,23 @@ export class Room extends DurableObject<Env> {
       const peer: Peer = { id: seat.id, look: seat.look, n: msg.n, h: msg.h };
       this.broadcast(joining ? { t: "join", peer } : { t: "move", id: seat.id, n: msg.n, h: msg.h }, ws);
       if (joining && seat.name) this.broadcast({ t: "name", id: seat.id, name: seat.name }, ws);
+      if (joining && seat.owner) this.broadcast({ t: "crown", id: seat.id }, ws);
+      return;
+    }
+
+    if (msg.t === "claim") {
+      // one guess per socket
+      if (seat.claimed) return;
+      seat.claimed = true;
+      ws.serializeAttachment(seat);
+      if (!(await isOwner(msg.key, this.env))) return;
+      const fresh = ws.deserializeAttachment() as Seat | null;
+      if (!fresh) return;
+      fresh.owner = true;
+      ws.serializeAttachment(fresh);
+      const crown: ServerMsg = { t: "crown", id: fresh.id };
+      this.send(ws, crown);
+      if (fresh.n) this.broadcast(crown, ws);
       return;
     }
 

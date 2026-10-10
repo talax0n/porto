@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
+import { Crown } from "lucide-react";
 import type { Group } from "three";
 import type { PeerId } from "@/data/room";
 import { cn } from "@/lib/utils";
@@ -18,11 +19,12 @@ interface TagProps {
   id: PeerId;
   name: string;
   mine: boolean;
+  king: boolean;
   line: Line | undefined;
   onMute: (id: PeerId) => void;
 }
 
-function Tag({ id, name, mine, line, onMute }: TagProps) {
+function Tag({ id, name, mine, king, line, onMute }: TagProps) {
   const head = useRef<Group>(null);
   const label = useRef<HTMLDivElement>(null);
   const bubble = useRef<HTMLButtonElement>(null);
@@ -63,13 +65,21 @@ function Tag({ id, name, mine, line, onMute }: TagProps) {
                 {line.text}
               </button>
             )}
-            <span
-              className={cn(
-                "w-max max-w-[140px] truncate rounded-full border border-hq-line bg-white/90 px-2 py-0.5 text-[10px] leading-none font-semibold backdrop-blur",
-                mine ? "text-hq-accent" : "text-hq-ink",
+            <span className="flex items-center gap-1">
+              {king && (
+                <span className="flex items-center gap-0.5 rounded-full border border-[#d9a21e] bg-[#f2c14e] px-1.5 py-0.5 text-[10px] leading-none font-bold text-[#5b3d00]">
+                  <Crown aria-hidden className="size-2.5" strokeWidth={2.5} />
+                  King
+                </span>
               )}
-            >
-              {name}
+              <span
+                className={cn(
+                  "w-max max-w-[140px] truncate rounded-full border border-hq-line bg-white/90 px-2 py-0.5 text-[10px] leading-none font-semibold backdrop-blur",
+                  mine ? "text-hq-accent" : "text-hq-ink",
+                )}
+              >
+                {name}
+              </span>
             </span>
           </div>
         </div>
@@ -82,14 +92,15 @@ interface SpeechProps {
   lines: readonly Line[];
   names: Readonly<Record<PeerId, string>>;
   me: PeerId | null;
+  kings: ReadonlySet<PeerId>;
   onMute: (id: PeerId) => void;
 }
 
 /** Everyone's name over their head, with what they just said stacked above it. Tapping someone else's bubble mutes them. */
-export function Speech({ lines, names, me, onMute }: SpeechProps) {
+export function Speech({ lines, names, me, kings, onMute }: SpeechProps) {
   // one bubble per speaker: the newest line replaces the one before it
   const latest = new Map(lines.map((l) => [l.id, l]));
   return Object.entries(names).map(([id, name]) => (
-    <Tag key={id} id={id} name={name} mine={id === me} line={latest.get(id)} onMute={onMute} />
+    <Tag key={id} id={id} name={name} mine={id === me} king={kings.has(id)} line={latest.get(id)} onMute={onMute} />
   ));
 }
